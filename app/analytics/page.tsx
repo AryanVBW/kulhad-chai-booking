@@ -33,7 +33,8 @@ import {
   Filter,
 } from "lucide-react"
 import type { Order, Bill, MenuItem, Table } from "@/lib/types"
-import { getOrders, getBills, getMenuItems, getTables } from "@/lib/store"
+import { getBills } from "@/lib/store"
+import { ordersService, tablesService, menuItemsService } from "@/lib/database"
 
 export default function AnalyticsPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -47,10 +48,24 @@ export default function AnalyticsPage() {
   const [selectedMetric, setSelectedMetric] = useState<string>("revenue")
 
   useEffect(() => {
-    setOrders(getOrders())
-    setBills(getBills())
-    setMenuItems(getMenuItems())
-    setTables(getTables())
+    const loadData = async () => {
+      try {
+        const [ordersData, tablesData, menuItemsData] = await Promise.all([
+          ordersService.getAll(),
+          tablesService.getAll(),
+          menuItemsService.getAll()
+        ])
+        
+        setOrders(ordersData)
+        setTables(tablesData)
+        setMenuItems(menuItemsData)
+        setBills(getBills()) // Keep bills in localStorage for now
+      } catch (error) {
+        console.error('Error loading analytics data:', error)
+      }
+    }
+    
+    loadData()
   }, [])
 
   // Filter data by date range
@@ -358,7 +373,7 @@ export default function AnalyticsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ status, percent }) => `${status} ${(percent * 100).toFixed(0)}%`}
+                    label={({ status, percent }) => `${status} ${percent ? (percent * 100).toFixed(0) : 0}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"

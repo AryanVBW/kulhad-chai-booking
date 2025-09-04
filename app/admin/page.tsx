@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,9 +28,12 @@ import {
   Printer,
   Bell,
   Coffee,
+  Check,
+  X,
 } from "lucide-react"
 import type { Order, Table, MenuItem } from "@/lib/types"
-import { getOrders, saveOrders, getTables, saveTables, getMenuItems, saveMenuItems, generateId } from "@/lib/store"
+import { ordersService, tablesService, menuItemsService, subscribeToOrders } from "@/lib/database"
+import { generateId } from "@/lib/store"
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<string>("overview")
@@ -39,25 +42,39 @@ export default function AdminDashboard() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null)
   const [isAddingItem, setIsAddingItem] = useState(false)
+  const [isAddingTable, setIsAddingTable] = useState(false)
   const [lastOrderCount, setLastOrderCount] = useState(0)
   const [showNotification, setShowNotification] = useState(false)
   const [newOrdersCount, setNewOrdersCount] = useState(0)
 
   useEffect(() => {
-    const loadedOrders = getOrders()
-    setOrders(loadedOrders)
-    setTables(getTables())
-    setMenuItems(getMenuItems())
-    setLastOrderCount(loadedOrders.length)
+    const loadData = async () => {
+      try {
+        // Load data from Supabase
+        const [loadedOrders, loadedTables, loadedMenuItems] = await Promise.all([
+          ordersService.getAll(),
+          tablesService.getAll(),
+          menuItemsService.getAll()
+        ])
+        
+        setOrders(loadedOrders)
+        setTables(loadedTables)
+        setMenuItems(loadedMenuItems)
+        setLastOrderCount(loadedOrders.length)
+      } catch (error) {
+        console.error('Error loading admin data:', error)
+      }
+    }
+    
+    loadData()
   }, [])
 
-  // Check for new orders and show notifications
+  // Set up real-time subscription for new orders
   useEffect(() => {
-    const interval = setInterval(() => {
-      const currentOrders = getOrders()
-      if (currentOrders.length > lastOrderCount) {
-        const newOrders = currentOrders.length - lastOrderCount
-        setNewOrdersCount(newOrders)
+    const unsubscribe = subscribeToOrders((newOrders) => {
+      if (newOrders.length > lastOrderCount) {
+        const newOrdersCount = newOrders.length - lastOrderCount
+        setNewOrdersCount(newOrdersCount)
         setShowNotification(true)
         
         // Play notification sound
@@ -69,12 +86,12 @@ export default function AdminDashboard() {
           setShowNotification(false)
         }, 5000)
         
-        setOrders(currentOrders)
-        setLastOrderCount(currentOrders.length)
+        setLastOrderCount(newOrders.length)
       }
-    }, 2000) // Check every 2 seconds
+      setOrders(newOrders)
+    })
 
-    return () => clearInterval(interval)
+    return unsubscribe
   }, [lastOrderCount])
 
   const menuNavItems = [
@@ -86,18 +103,41 @@ export default function AdminDashboard() {
     { id: "settings", label: "Settings", icon: Settings },
   ]
 
-  const updateOrderStatus = (orderId: string, newStatus: Order["status"]) => {
-    const updatedOrders = orders.map((order) =>
-      order.id === orderId ? { ...order, status: newStatus, updatedAt: new Date() } : order,
-    )
-    setOrders(updatedOrders)
-    saveOrders(updatedOrders)
+  const updateOrderStatus = async (orderId: string, newStatus: Order["status"]) => {
+    try {
+      await ordersService.updateStatus(orderId, newStatus)
+      // The real-time subscription will update the UI automatically
+    } catch (error) {
+      console.error('Error updating order status:', error)
+    }
   }
 
-  const updateTableStatus = (tableId: string, newStatus: Table["status"]) => {
-    const updatedTables = tables.map((table) => (table.id === tableId ? { ...table, status: newStatus } : table))
-    setTables(updatedTables)
-    saveTables(updatedTables)
+  const updateTableStatus = async (tableId: string, newStatus: Table["status"]) => {
+    try {
+      await tablesService.updateStatus(tableId, newStatus)
+      // Update local state immediately for better UX
+      const updatedTables = tables.map((table) => (table.id === tableId ? { ...table, status: newStatus } : table))
+      setTables(updatedTables)
+    } catch (error) {
+      console.error('Error updating table status:', error)
+    }
+  }
+
+  const addNewTable = async (tableData: { number: number; capacity: number }) => {
+    try {
+      const newTable: Omit<Table, 'id'> = {
+        number: tableData.number,
+        capacity: tableData.capacity,
+        status: 'available',
+        qrCode: `QR_TABLE_${String(tableData.number).padStart(3, '0')}`
+      }
+      
+      const createdTable = await tablesService.create(newTable)
+      setTables([...tables, createdTable])
+      setIsAddingTable(false)
+    } catch (error) {
+      console.error('Error adding new table:', error)
+    }
   }
 
   const getMenuItemById = (id: string) => {
@@ -192,23 +232,34 @@ export default function AdminDashboard() {
     printWindow.print()
   }
 
-  const saveMenuItem = (item: MenuItem) => {
-    let updatedItems
-    if (editingMenuItem) {
-      updatedItems = menuItems.map((existing) => (existing.id === item.id ? item : existing))
-    } else {
-      updatedItems = [...menuItems, { ...item, id: generateId() }]
+  const saveMenuItem = async (item: MenuItem) => {
+    try {
+      if (editingMenuItem) {
+        await menuItemsService.update(item.id, item)
+        const updatedItems = menuItems.map((existing) => (existing.id === item.id ? item : existing))
+        setMenuItems(updatedItems)
+      } else {
+        const newItem = { ...item, id: generateId() }
+        await menuItemsService.create(newItem)
+        setMenuItems([...menuItems, newItem])
+      }
+      setEditingMenuItem(null)
+      setIsAddingItem(false)
+    } catch (error) {
+      console.error('Error saving menu item:', error)
     }
-    setMenuItems(updatedItems)
-    saveMenuItems(updatedItems)
-    setEditingMenuItem(null)
-    setIsAddingItem(false)
   }
 
-  const deleteMenuItem = (itemId: string) => {
-    const updatedItems = menuItems.filter((item) => item.id !== itemId)
-    setMenuItems(updatedItems)
-    saveMenuItems(updatedItems)
+  const deleteMenuItem = async (itemId: string) => {
+    try {
+      // Note: We don't have a delete method in menuItemsService yet
+      // For now, just update local state
+      const updatedItems = menuItems.filter((item) => item.id !== itemId)
+      setMenuItems(updatedItems)
+      console.log('Delete functionality needs to be implemented in menuItemsService')
+    } catch (error) {
+      console.error('Error deleting menu item:', error)
+    }
   }
 
   // Calculate stats
@@ -246,9 +297,19 @@ export default function AdminDashboard() {
       <div className="bg-gradient-to-r from-slate-800 to-gray-800 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Restaurant Admin</h1>
-              <p className="text-slate-300">Kulhad Chai Management Dashboard</p>
+            <div className="flex items-center space-x-4">
+              <Image
+                src="/logo_with_name.png"
+                alt="Kulhad Chai Restaurant"
+                width={120}
+                height={40}
+                className="h-10 w-auto"
+                priority
+              />
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Restaurant Admin</h1>
+                <p className="text-slate-300">Kulhad Chai Management Dashboard</p>
+              </div>
             </div>
             {orders.filter(order => order.status === 'pending').length > 0 && (
               <div className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded-lg">
@@ -570,10 +631,65 @@ export default function AdminDashboard() {
             {activeSection === "tables" && (
               <div className="space-y-6">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Table Management</CardTitle>
+                    <Button onClick={() => setIsAddingTable(true)} className="bg-blue-600 hover:bg-blue-700">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Table
+                    </Button>
                   </CardHeader>
                   <CardContent>
+                    {isAddingTable && (
+                      <Card className="p-4 mb-4 border-2 border-blue-200">
+                        <h4 className="font-medium mb-3">Add New Table</h4>
+                        <form onSubmit={(e) => {
+                          e.preventDefault()
+                          const formData = new FormData(e.currentTarget)
+                          const number = parseInt(formData.get('number') as string)
+                          const capacity = parseInt(formData.get('capacity') as string)
+                          if (number && capacity) {
+                            addNewTable({ number, capacity })
+                          }
+                        }}>
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Table Number</label>
+                              <input
+                                type="number"
+                                name="number"
+                                min="1"
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter table number"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Capacity</label>
+                              <input
+                                type="number"
+                                name="capacity"
+                                min="1"
+                                max="20"
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Number of seats"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                              <Check className="h-4 w-4 mr-2" />
+                              Add Table
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setIsAddingTable(false)}>
+                              <X className="h-4 w-4 mr-2" />
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </Card>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {tables.map((table) => (
                         <Card
@@ -723,7 +839,7 @@ export default function AdminDashboard() {
               </Card>
             )}
 
-            {/* Placeholder for settings */}
+            {/* Settings */}
             {activeSection === "settings" && (
               <Card>
                 <CardHeader>
@@ -731,7 +847,18 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-12">
-                    <p className="text-gray-500">Settings panel coming soon...</p>
+                    <div className="mb-4">
+                      <Settings className="h-16 w-16 text-orange-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Restaurant Settings</h3>
+                      <p className="text-gray-600 mb-6">Manage your restaurant configuration, opening hours, pricing, and system preferences.</p>
+                    </div>
+                    <Button 
+                      onClick={() => window.location.href = '/admin/settings'}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Open Settings
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

@@ -301,22 +301,25 @@ export const savePayment = (payment: Omit<Payment, "id" | "createdAt">): Payment
 
 // Business settings
 export const getBusinessSettings = (): BusinessSettings => {
-  if (typeof window === "undefined") {
-    return {
-      id: "1",
-      businessName: "Kulhad Chai Business",
-      address: "",
-      phone: "",
-      email: "",
-      taxRate: 18,
-      currency: "INR",
-      invoicePrefix: "INV",
-      invoiceCounter: 1000,
-    }
+  const defaultSettings: BusinessSettings = {
+    id: "1",
+    businessName: "Kulhad Chai Business",
+    address: "123 Main Street, City, State 12345",
+    phone: "+91 9876543210",
+    email: "info@kulhadchai.com",
+    taxRate: 18,
+    currency: "INR",
+    invoicePrefix: "INV",
+    invoiceCounter: 1000,
   }
+  
+  if (typeof window === "undefined") {
+    return defaultSettings
+  }
+  
   initializeDefaultData()
   const data = localStorage.getItem(STORAGE_KEYS.SETTINGS)
-  return data ? JSON.parse(data) : {}
+  return data ? JSON.parse(data) : defaultSettings
 }
 
 export const updateBusinessSettings = (updates: Partial<BusinessSettings>): BusinessSettings => {
@@ -378,6 +381,31 @@ export const getCurrentUser = (): User | null => {
 
 export const setCurrentUser = (user: User): void => {
   localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user))
+}
+
+export const clearCurrentUser = (): void => {
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER)
+}
+
+export const authenticateUser = (email: string, password: string): User | null => {
+  const users = getUsers()
+  const user = users.find(u => u.email === email && u.password === password && u.isActive)
+  
+  if (user) {
+    setCurrentUser(user)
+    logUserActivity(user.id, user.name, 'Login', 'Authentication', 'User logged in successfully')
+    return user
+  }
+  
+  return null
+}
+
+export const logoutUser = (): void => {
+  const currentUser = getCurrentUser()
+  if (currentUser) {
+    logUserActivity(currentUser.id, currentUser.name, 'Logout', 'Authentication', 'User logged out')
+  }
+  clearCurrentUser()
 }
 
 // Bill template management

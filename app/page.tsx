@@ -5,47 +5,75 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Minus, ShoppingCart, Clock } from "lucide-react"
+import Image from "next/image"
 import type { MenuItem, OrderItem } from "@/lib/types"
-import { getMenuItems, saveMenuItems } from "@/lib/store"
+import { menuItemsService } from "@/lib/database"
 import { completeMenuItems, menuCategories } from "@/lib/menu-data"
 import { Navbar } from "@/components/navbar"
+import { MenuItemSkeleton, CategoryTabSkeleton } from "@/components/loading-skeleton"
+import { useToast } from "@/components/toast"
 
 export default function MenuPage() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [menuItems, setMenuItems] = useState<MenuItem[]>(completeMenuItems)
   const [cart, setCart] = useState<OrderItem[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("chai")
-  const [tableNumber, setTableNumber] = useState<string>("")
+  const [tableNumber, setTableNumber] = useState<string>("") 
+  const [isLoading, setIsLoading] = useState(false)
+  const { addToast } = useToast()
 
   useEffect(() => {
-    const storedItems = getMenuItems()
-    if (storedItems.length === 0) {
-      saveMenuItems(completeMenuItems)
+    const loadData = async () => {
+      console.log('useEffect loadData started')
+      setIsLoading(true)
+      
+      // For now, let's use local data directly to fix the filtering issue
+      console.log('Using local menu data:', completeMenuItems.length)
+      console.log('Setting menuItems with completeMenuItems')
       setMenuItems(completeMenuItems)
-    } else {
-      setMenuItems(storedItems)
+      console.log('menuItems set, length should be:', completeMenuItems.length)
+      
+      // Get table number from URL params
+      const params = new URLSearchParams(window.location.search)
+      setTableNumber(params.get("table") || "1")
+      
+      // Load cart from localStorage (keep this for user session)
+      const savedCart = localStorage.getItem('current_cart')
+      if (savedCart) {
+        setCart(JSON.parse(savedCart))
+      }
+      
+      setIsLoading(false)
+      console.log('useEffect loadData completed')
     }
-    // Get table number from URL params
-    const params = new URLSearchParams(window.location.search)
-    setTableNumber(params.get("table") || "1")
     
-    // Load cart from localStorage
-    const savedCart = localStorage.getItem('current_cart')
-    if (savedCart) {
-      setCart(JSON.parse(savedCart))
-    }
+    loadData()
   }, [])
 
   const categories = menuCategories
 
-  const filteredItems = menuItems.filter((item) => item.category === selectedCategory && item.available)
+  const filteredItems = selectedCategory === "all" 
+    ? menuItems.filter((item) => item.available)
+    : menuItems.filter((item) => item.category === selectedCategory && item.available)
 
   const addToCart = (menuItem: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.menuItemId === menuItem.id)
       let newCart
       if (existing) {
+        addToast({
+          type: "success",
+          title: "Item added to cart",
+          description: `${menuItem.name} quantity increased`,
+          duration: 2000
+        })
         newCart = prev.map((item) => (item.menuItemId === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item))
       } else {
+        addToast({
+          type: "success",
+          title: "Item added to cart",
+          description: `${menuItem.name} added successfully`,
+          duration: 2000
+        })
         newCart = [...prev, { menuItemId: menuItem.id, quantity: 1, price: menuItem.price }]
       }
       // Save to localStorage
@@ -119,44 +147,66 @@ export default function MenuPage() {
       <div className="max-w-md mx-auto p-4 pb-24">
         {/* Category Tabs */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex space-x-2 sm:space-x-3 overflow-x-auto pb-3 scrollbar-hide">
-            <button
-              onClick={() => setSelectedCategory("all")}
-              className={`flex items-center space-x-2 px-4 py-3 rounded-2xl whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${
-                selectedCategory === "all"
-                  ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-200"
-                  : "bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-orange-100"
-              }`}
-            >
-              <span className="text-lg">🍽️</span>
-              <span className="font-semibold text-sm sm:text-base">All Items</span>
-            </button>
-            {categories.map((category) => (
+          {isLoading ? (
+            <CategoryTabSkeleton />
+          ) : (
+            <div className="flex space-x-2 sm:space-x-3 overflow-x-auto pb-3 custom-scrollbar">
               <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
+                onClick={() => setSelectedCategory("all")}
                 className={`flex items-center space-x-2 px-4 py-3 rounded-2xl whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${
-                  selectedCategory === category.id
-                    ? `bg-gradient-to-r ${category.color} text-white shadow-lg`
+                  selectedCategory === "all"
+                    ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-200"
                     : "bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-orange-100"
                 }`}
               >
-                <span className="text-lg">{category.icon}</span>
-                <span className="font-semibold text-sm sm:text-base">{category.name}</span>
+                <span className="text-lg">🍽️</span>
+                <span className="font-semibold text-sm sm:text-base">All Items</span>
               </button>
-            ))}
-          </div>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-2xl whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${
+                    selectedCategory === category.id
+                      ? `bg-gradient-to-r ${category.color} text-white shadow-lg`
+                      : "bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white border border-orange-100"
+                  }`}
+                >
+                  <span className="text-lg">{category.icon}</span>
+                  <span className="font-semibold text-sm sm:text-base">{category.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Menu Items */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {(selectedCategory === "all" ? menuItems : filteredItems).map((item) => {
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <MenuItemSkeleton key={i} />
+            ))
+          ) : (
+            (selectedCategory === "all" ? menuItems : filteredItems).map((item) => {
             const quantity = getCartItemQuantity(item.id)
             const categoryInfo = categories.find(cat => cat.id === item.category)
 
             return (
-              <div key={item.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-4 sm:p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105 group">
+              <div key={item.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-4 sm:p-6 card-hover group">
                 <div className="flex flex-col h-full">
+                  {/* Product Image */}
+                  {item.image && (
+                    <div className="relative w-full h-32 sm:h-40 mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50">
+                      <Image
+                        src={item.image}
+                        alt={item.name}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-110"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    </div>
+                  )}
+                  
                   {/* Category Badge */}
                   <div className="flex items-center justify-between mb-3">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${categoryInfo?.color || 'from-gray-400 to-gray-500'} text-white shadow-sm`}>
@@ -214,7 +264,7 @@ export default function MenuPage() {
                       <div className="flex items-center space-x-3 bg-orange-50 rounded-full px-4 py-2">
                         <button
                           onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white flex items-center justify-center hover:shadow-lg transition-all duration-200 transform hover:scale-110"
+                          className="w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
@@ -223,7 +273,7 @@ export default function MenuPage() {
                         </span>
                         <button
                           onClick={() => addToCart(item)}
-                          className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center hover:shadow-lg transition-all duration-200 transform hover:scale-110"
+                          className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -231,7 +281,7 @@ export default function MenuPage() {
                     ) : (
                       <button
                         onClick={() => addToCart(item)}
-                        className="flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all duration-200 transform hover:scale-105 group-hover:from-orange-600 group-hover:to-amber-600"
+                        className="flex items-center space-x-2 btn-primary text-white px-6 py-3 rounded-full font-semibold focus-ring"
                       >
                         <Plus className="h-4 w-4" />
                         <span>Add to Cart</span>
@@ -241,13 +291,14 @@ export default function MenuPage() {
                 </div>
               </div>
             )
-          })}
+          })
+          )}
         </div>
       </div>
 
       {/* Cart Footer */}
       {cart.length > 0 && (
-        <div className="cart-footer fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-200 p-4 shadow-2xl z-40">
+        <div className="cart-footer fixed bottom-0 left-0 right-0 glass-effect border-t border-orange-200 p-4 shadow-2xl z-40">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
@@ -270,7 +321,7 @@ export default function MenuPage() {
               </div>
             </div>
             <button 
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-2xl font-bold text-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:from-orange-600 hover:to-amber-600 flex items-center justify-center space-x-2"
+              className="w-full btn-primary text-white py-4 rounded-2xl font-bold text-lg focus-ring flex items-center justify-center space-x-2"
               onClick={() => {
                 // Navigate to checkout
                 window.location.href = `/checkout?table=${tableNumber}`

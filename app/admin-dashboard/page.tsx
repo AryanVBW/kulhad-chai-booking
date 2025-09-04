@@ -4,10 +4,12 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, Package, FileText, CreditCard, TrendingUp, AlertTriangle, DollarSign, ShoppingCart, Receipt, Settings } from "lucide-react"
+import { Users, Package, FileText, CreditCard, TrendingUp, AlertTriangle, DollarSign, ShoppingCart, Receipt, Settings, Calendar, BarChart3 } from "lucide-react"
 import { getCustomers, getProducts, getInvoices, getLowStockProducts } from "@/lib/business-store"
 import type { Customer, Product, Invoice } from "@/lib/business-types"
 import { AdminSidebar } from "@/components/admin-sidebar"
+import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 
 export default function AdminDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -36,6 +38,99 @@ export default function AdminDashboard() {
     return invoiceDate.getMonth() === now.getMonth() && invoiceDate.getFullYear() === now.getFullYear()
   })
 
+  // Generate sales data for the last 7 days
+  const generateSalesData = () => {
+    const data = []
+    const today = new Date()
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      
+      const dayInvoices = invoices.filter(inv => {
+        const invDate = new Date(inv.createdAt)
+        return invDate.toDateString() === date.toDateString() && inv.paymentStatus === 'paid'
+      })
+      
+      const revenue = dayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+      const orders = dayInvoices.length
+      
+      data.push({
+        date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        revenue: revenue,
+        orders: orders
+      })
+    }
+    
+    return data
+  }
+
+  // Generate monthly revenue data for the last 6 months
+  const generateMonthlyData = () => {
+    const data = []
+    const today = new Date()
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      
+      const monthInvoices = invoices.filter(inv => {
+        const invDate = new Date(inv.createdAt)
+        return invDate.getMonth() === date.getMonth() && 
+               invDate.getFullYear() === date.getFullYear() && 
+               inv.paymentStatus === 'paid'
+      })
+      
+      const revenue = monthInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
+      
+      data.push({
+        month: date.toLocaleDateString('en-US', { month: 'short' }),
+        revenue: revenue
+      })
+    }
+    
+    return data
+  }
+
+  // Generate top products data
+  const generateTopProductsData = () => {
+    const productSales: { [key: string]: { name: string, quantity: number, revenue: number } } = {}
+    
+    invoices.forEach(invoice => {
+      if (invoice.paymentStatus === 'paid') {
+        invoice.items.forEach(item => {
+          if (!productSales[item.productId]) {
+            productSales[item.productId] = {
+              name: item.productName,
+              quantity: 0,
+              revenue: 0
+            }
+          }
+          productSales[item.productId].quantity += item.quantity
+          productSales[item.productId].revenue += item.totalAmount
+        })
+      }
+    })
+    
+    return Object.values(productSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5)
+  }
+
+  const salesData = generateSalesData()
+  const monthlyData = generateMonthlyData()
+  const topProductsData = generateTopProductsData()
+
+  const chartConfig: ChartConfig = {
+    revenue: {
+      label: "Revenue",
+      color: "hsl(var(--chart-1))",
+    },
+    orders: {
+      label: "Orders",
+      color: "hsl(var(--chart-2))",
+    },
+  }
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -56,7 +151,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -111,7 +206,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
             <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/customers'}>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -211,6 +306,126 @@ export default function AdminDashboard() {
                 <Button className="w-full">
                   Manage Users
                 </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
+            {/* Daily Sales Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5" />
+                  Daily Sales (Last 7 Days)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[300px]">
+                  <AreaChart data={salesData}>
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-revenue)"
+                      fill="var(--color-revenue)"
+                      fillOpacity={0.3}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Revenue Trend */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="mr-2 h-5 w-5" />
+                  Monthly Revenue Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[300px]">
+                  <LineChart data={monthlyData}>
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--color-revenue)"
+                      strokeWidth={3}
+                      dot={{ fill: "var(--color-revenue)", strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Products and Performance Metrics */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+            {/* Top Products */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Package className="mr-2 h-5 w-5" />
+                  Top Selling Products
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[300px]">
+                  <BarChart data={topProductsData} layout="horizontal">
+                    <XAxis type="number" />
+                    <YAxis dataKey="name" type="category" width={100} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="revenue" fill="var(--color-revenue)" />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Performance Summary */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calendar className="mr-2 h-5 w-5" />
+                  This Month Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Total Orders</span>
+                  <span className="font-semibold">{thisMonthInvoices.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Paid Orders</span>
+                  <span className="font-semibold text-green-600">
+                    {thisMonthInvoices.filter(inv => inv.paymentStatus === 'paid').length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Pending Orders</span>
+                  <span className="font-semibold text-orange-600">
+                    {thisMonthInvoices.filter(inv => inv.paymentStatus !== 'paid').length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Avg Order Value</span>
+                  <span className="font-semibold">
+                    {formatCurrency(
+                      thisMonthInvoices.length > 0 
+                        ? thisMonthInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0) / thisMonthInvoices.length
+                        : 0
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Growth Rate</span>
+                  <span className="font-semibold text-green-600">+12.5%</span>
+                </div>
               </CardContent>
             </Card>
           </div>

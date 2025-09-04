@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Receipt, CreditCard, Banknote, Smartphone, Printer, Search, DollarSign, CheckCircle } from "lucide-react"
 import type { Order, Bill, Table, MenuItem } from "@/lib/types"
-import { getOrders, getBills, saveBills, getTables, getMenuItems, generateId, calculateTax } from "@/lib/store"
+import { getBills, saveBills, generateId, calculateTax } from "@/lib/store"
+import { ordersService, tablesService, menuItemsService } from "@/lib/database"
 
 export default function BillingPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -23,10 +24,24 @@ export default function BillingPage() {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
 
   useEffect(() => {
-    setOrders(getOrders())
-    setBills(getBills())
-    setTables(getTables())
-    setMenuItems(getMenuItems())
+    const loadData = async () => {
+      try {
+        const [ordersData, tablesData, menuItemsData] = await Promise.all([
+          ordersService.getAll(),
+          tablesService.getAll(),
+          menuItemsService.getAll()
+        ])
+        
+        setOrders(ordersData)
+        setTables(tablesData)
+        setMenuItems(menuItemsData)
+        setBills(getBills()) // Keep bills in localStorage for now
+      } catch (error) {
+        console.error('Error loading data:', error)
+      }
+    }
+    
+    loadData()
   }, [])
 
   const getMenuItemById = (id: string) => {

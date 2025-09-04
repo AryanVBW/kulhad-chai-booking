@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   TrendingUp,
   Users,
@@ -15,8 +16,11 @@ import {
   Shield,
   Activity,
   ArrowLeft,
-  ShoppingCart
+  ShoppingCart,
+  LogOut,
+  User
 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 interface AdminSidebarProps {
   title?: string
@@ -28,6 +32,50 @@ interface NavItem {
   label: string
   icon: React.ComponentType<{ className?: string }>
   isActive?: boolean
+}
+
+function UserInfo() {
+  const { user, logout } = useAuth()
+
+  if (!user) return null
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case 'admin': return 'default'
+      case 'manager': return 'secondary'
+      case 'staff': return 'outline'
+      default: return 'outline'
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center space-x-2 p-2 rounded-lg bg-sidebar-accent/50">
+        <div className="w-8 h-8 bg-sidebar-primary rounded-full flex items-center justify-center">
+          <User className="w-4 h-4 text-sidebar-primary-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-sidebar-foreground truncate">
+            {user.name}
+          </p>
+          <div className="flex items-center space-x-1">
+            <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs">
+              {user.role}
+            </Badge>
+          </div>
+        </div>
+      </div>
+      
+      <Button
+        onClick={logout}
+        variant="ghost"
+        className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-red-600"
+      >
+        <LogOut className="mr-3 h-4 w-4" />
+        Logout
+      </Button>
+    </div>
+  )
 }
 
 export function AdminSidebar({ title = "Business Admin", subtitle = "Kulhad Chai Management" }: AdminSidebarProps) {
@@ -138,8 +186,12 @@ export function AdminSidebar({ title = "Business Admin", subtitle = "Kulhad Chai
         })}
       </nav>
 
-      {/* Back to Main Site */}
-      <div className="px-4 py-4 mt-auto border-t border-sidebar-border">
+      {/* User Info and Actions */}
+      <div className="px-4 py-4 mt-auto border-t border-sidebar-border space-y-3">
+        {/* Current User Info */}
+        <UserInfo />
+        
+        {/* Back to Main Site */}
         <Link href="/">
           <Button
             variant="outline"

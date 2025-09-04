@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowLeft, Printer, Receipt, Clock, User, Phone, MapPin, Coffee, CheckCircle, Heart } from "lucide-react"
 import type { MenuItem, OrderItem, Order } from "@/lib/types"
-import { getMenuItems, getOrders, saveOrders, generateId } from "@/lib/store"
+import { menuItemsService, ordersService } from "@/lib/database"
 import { Navbar } from "@/components/navbar"
 
 export default function CheckoutPage() {
@@ -31,7 +31,17 @@ export default function CheckoutPage() {
   })
 
   useEffect(() => {
-    setMenuItems(getMenuItems())
+    const loadData = async () => {
+      try {
+        // Load menu items from Supabase
+        const items = await menuItemsService.getAll()
+        setMenuItems(items)
+      } catch (error) {
+        console.error('Error loading menu items:', error)
+      }
+    }
+    
+    loadData()
 
     // Get data from URL params and localStorage
     const params = new URLSearchParams(window.location.search)
@@ -66,23 +76,18 @@ export default function CheckoutPage() {
     setIsProcessingOrder(true)
 
     try {
-      const newOrder: Order = {
-        id: generateId(),
+      const orderData = {
         tableId: `table-${tableNumber}`,
-        items: cart,
-        status: 'pending',
+        status: 'pending' as const,
         totalAmount: total,
-        createdAt: new Date(),
-        updatedAt: new Date(),
         customerName: customerName || undefined,
-        customerPhone: customerPhone || undefined
+        customerPhone: customerPhone || undefined,
+        items: cart
       }
 
-      // Save order
-      const existingOrders = getOrders()
-      existingOrders.push(newOrder)
-      saveOrders(existingOrders)
-
+      // Create order in Supabase
+      const newOrder = await ordersService.create(orderData)
+      
       setCompletedOrder(newOrder)
       setOrderCompleted(true)
       
@@ -91,6 +96,7 @@ export default function CheckoutPage() {
       
     } catch (error) {
       console.error('Error processing order:', error)
+      // You could add toast notification here for error feedback
     } finally {
       setIsProcessingOrder(false)
     }
@@ -120,16 +126,6 @@ export default function CheckoutPage() {
 
           {/* Thank You Message */}
           <div className="bg-white rounded-xl shadow-lg p-8 mb-6 text-center">
-            {/* Logo */}
-            <div className="mb-6">
-              <Image
-                src="/logo.png"
-                alt="Kulhad Chai Restaurant"
-                width={80}
-                height={80}
-                className="mx-auto mb-4"
-              />
-            </div>
             <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>

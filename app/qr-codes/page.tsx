@@ -6,15 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { QRCodeSVG } from "qrcode.react"
 import { Download, Printer, Eye } from "lucide-react"
 import type { Table } from "@/lib/types"
-import { getTables } from "@/lib/store"
+import { tablesService } from "@/lib/database"
 
 export default function QRCodesPage() {
   const [tables, setTables] = useState<Table[]>([])
   const [baseUrl, setBaseUrl] = useState<string>("")
 
   useEffect(() => {
-    setTables(getTables())
-    setBaseUrl(window.location.origin)
+    const loadData = async () => {
+      try {
+        const tablesData = await tablesService.getAll()
+        setTables(tablesData)
+        setBaseUrl(window.location.origin)
+      } catch (error) {
+        console.error('Error loading tables:', error)
+      }
+    }
+    
+    loadData()
   }, [])
 
   const generateQRUrl = (tableNumber: number) => {

@@ -41,12 +41,6 @@ export function Navbar({ cartItemCount = 0, showCart = true, showAdmin = false, 
           <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
             Menu
           </Link>
-          <Link href="/about" className="text-sm font-medium transition-colors hover:text-primary">
-            About
-          </Link>
-          <Link href="/contact" className="text-sm font-medium transition-colors hover:text-primary">
-            Contact
-          </Link>
           {showAdmin && (
             <Link href="/admin" className="text-sm font-medium transition-colors hover:text-primary">
               Admin
@@ -89,12 +83,6 @@ export function Navbar({ cartItemCount = 0, showCart = true, showAdmin = false, 
               <div className="flex flex-col space-y-4 mt-6">
                 <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
                   Menu
-                </Link>
-                <Link href="/about" className="text-sm font-medium transition-colors hover:text-primary">
-                  About
-                </Link>
-                <Link href="/contact" className="text-sm font-medium transition-colors hover:text-primary">
-                  Contact
                 </Link>
                 {showAdmin && (
                   <Link href="/admin" className="text-sm font-medium transition-colors hover:text-primary">

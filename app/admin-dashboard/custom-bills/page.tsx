@@ -27,7 +27,8 @@ import {
   Percent,
   DollarSign
 } from "lucide-react"
-import { getMenuItems, saveBills, generateId, calculateTax } from "@/lib/store"
+import { saveBills, generateId, calculateTax } from "@/lib/store"
+import { menuItemsService } from "@/lib/database"
 import type { MenuItem, Bill, BillItem } from "@/lib/types"
 
 interface CustomBillItem {
@@ -81,8 +82,17 @@ export default function CustomBillsPage() {
   const [isCustomItem, setIsCustomItem] = useState(false)
 
   useEffect(() => {
-    setMenuItems(getMenuItems())
-    loadBills()
+    const loadData = async () => {
+      try {
+        const menuItemsData = await menuItemsService.getAll()
+        setMenuItems(menuItemsData)
+        loadBills()
+      } catch (error) {
+        console.error('Error loading menu items:', error)
+      }
+    }
+    
+    loadData()
   }, [])
 
   const loadBills = () => {
