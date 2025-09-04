@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Printer, Receipt, Clock, User, Phone, MapPin, Coffee } from "lucide-react"
-import type { MenuItem, OrderItem, Bill, BillItem } from "@/lib/types"
-import { getMenuItems, saveBills, generateId, calculateTax } from "@/lib/store"
+import Image from "next/image"
+import { ArrowLeft, Printer, Receipt, Clock, User, Phone, MapPin, Coffee, CheckCircle, Heart } from "lucide-react"
+import type { MenuItem, OrderItem, Order } from "@/lib/types"
+import { getMenuItems, getOrders, saveOrders, generateId } from "@/lib/store"
+import { Navbar } from "@/components/navbar"
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -13,9 +15,9 @@ export default function CheckoutPage() {
   const [tableNumber, setTableNumber] = useState<string>("")
   const [customerName, setCustomerName] = useState<string>("")
   const [customerPhone, setCustomerPhone] = useState<string>("")
-  const [isGeneratingBill, setIsGeneratingBill] = useState(false)
-  const [billGenerated, setBillGenerated] = useState(false)
-  const [generatedBill, setGeneratedBill] = useState<Bill | null>(null)
+  const [isProcessingOrder, setIsProcessingOrder] = useState(false)
+  const [orderCompleted, setOrderCompleted] = useState(false)
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null)
   const [shopSettings, setShopSettings] = useState({
     name: "Kulhad Chai Restaurant",
     address: "123 Main Street, City, State 12345",
@@ -60,238 +62,116 @@ export default function CheckoutPage() {
   const tax = subtotal * (shopSettings.taxRate / 100)
   const total = subtotal + tax
 
-  const handleGenerateBill = async () => {
-    setIsGeneratingBill(true)
+  const handleCompleteOrder = async () => {
+    setIsProcessingOrder(true)
 
     try {
-      const billItems: BillItem[] = cart.map(item => {
-        const menuItem = getMenuItemById(item.menuItemId)
-        return {
-          name: menuItem?.name || 'Unknown Item',
-          quantity: item.quantity,
-          price: item.price,
-          total: item.price * item.quantity
-        }
-      })
-
-      const newBill: Bill = {
+      const newOrder: Order = {
         id: generateId(),
-        orderId: generateId(),
         tableId: `table-${tableNumber}`,
-        items: billItems,
-        subtotal,
-        tax,
-        total,
-        paymentStatus: 'paid',
-        createdAt: new Date()
+        items: cart,
+        status: 'pending',
+        totalAmount: total,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        customerName: customerName || undefined,
+        customerPhone: customerPhone || undefined
       }
 
-      // Save bill
-      const existingBills = JSON.parse(localStorage.getItem('bills') || '[]')
-      existingBills.push(newBill)
-      localStorage.setItem('bills', JSON.stringify(existingBills))
-      saveBills(existingBills)
+      // Save order
+      const existingOrders = getOrders()
+      existingOrders.push(newOrder)
+      saveOrders(existingOrders)
 
-      setGeneratedBill(newBill)
-      setBillGenerated(true)
+      setCompletedOrder(newOrder)
+      setOrderCompleted(true)
       
       // Clear cart
       localStorage.removeItem('current_cart')
       
     } catch (error) {
-      console.error('Error generating bill:', error)
+      console.error('Error processing order:', error)
     } finally {
-      setIsGeneratingBill(false)
+      setIsProcessingOrder(false)
     }
   }
 
-  const handlePrintBill = () => {
-    if (!generatedBill) return
-    
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+  // Removed print functionality as bills are now handled by admin
 
-    const billHTML = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Bill - ${generatedBill.id}</title>
-          <style>
-            body { font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; padding: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
-            .shop-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-            .shop-details { font-size: 12px; line-height: 1.4; }
-            .bill-info { margin: 15px 0; }
-            .items { margin: 15px 0; }
-            .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
-            .totals { border-top: 1px solid #000; padding-top: 10px; margin-top: 15px; }
-            .total-line { display: flex; justify-content: space-between; margin: 3px 0; }
-            .final-total { font-weight: bold; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
-            .footer { text-align: center; margin-top: 20px; font-size: 12px; border-top: 1px solid #000; padding-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="shop-name">☕ ${shopSettings.name}</div>
-            <div class="shop-details">
-              📍 ${shopSettings.address}<br>
-              📞 ${shopSettings.phone}<br>
-              ${shopSettings.email ? `🌐 ${shopSettings.email}` : ''}
-            </div>
-          </div>
-          
-          <div class="bill-info">
-            <div><strong>Bill ID:</strong> ${generatedBill.id}</div>
-            <div><strong>Table:</strong> ${tableNumber}</div>
-            <div><strong>Date:</strong> ${new Date(generatedBill.createdAt).toLocaleString()}</div>
-            ${customerName ? `<div><strong>Customer:</strong> ${customerName}</div>` : ''}
-             ${customerPhone ? `<div><strong>Phone:</strong> ${customerPhone}</div>` : ''}
-          </div>
-          
-          <div class="items">
-            <div style="border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px;">
-              <strong>ITEMS ORDERED</strong>
-            </div>
-            ${generatedBill.items.map(item => `
-              <div class="item">
-                <span>${item.name} x${item.quantity}</span>
-                <span>${shopSettings.currency}${item.total.toFixed(2)}</span>
-              </div>
-            `).join('')}
-          </div>
-          
-          <div class="totals">
-            <div class="total-line">
-              <span>Subtotal:</span>
-              <span>${shopSettings.currency}${generatedBill.subtotal.toFixed(2)}</span>
-            </div>
-            <div class="total-line">
-              <span>Tax (${shopSettings.taxRate}%):</span>
-              <span>${shopSettings.currency}${generatedBill.tax.toFixed(2)}</span>
-            </div>
-            <div class="total-line final-total">
-              <span>TOTAL:</span>
-              <span>${shopSettings.currency}${generatedBill.total.toFixed(2)}</span>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <div>${shopSettings.footerText}</div>
-            <div>🙏 Please visit again 🙏</div>
-          </div>
-        </body>
-      </html>
-    `
-
-    printWindow.document.write(billHTML)
-    printWindow.document.close()
-    printWindow.print()
-  }
-
-  if (billGenerated && generatedBill) {
+  if (orderCompleted && completedOrder) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-        <div className="max-w-md mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+        <Navbar showCart={false} />
+        <div className="max-w-md mx-auto p-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => router.push('/')}
-              className="flex items-center gap-2 text-amber-700 hover:text-amber-800 transition-colors"
+              className="flex items-center gap-2 text-green-700 hover:text-green-800 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Menu</span>
             </button>
-            <div className="flex items-center gap-2 text-amber-800">
-              <Receipt className="w-5 h-5" />
-              <span className="font-semibold">Bill Generated</span>
+            <div className="flex items-center gap-2 text-green-800">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-semibold">Order Placed</span>
             </div>
           </div>
 
-          {/* Success Message */}
-          <div className="bg-green-100 border border-green-300 rounded-xl p-6 mb-6 text-center">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Receipt className="w-8 h-8 text-white" />
+          {/* Thank You Message */}
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6 text-center">
+            {/* Logo */}
+            <div className="mb-6">
+              <Image
+                src="/logo.png"
+                alt="Kulhad Chai Restaurant"
+                width={80}
+                height={80}
+                className="mx-auto mb-4"
+              />
             </div>
-            <h2 className="text-xl font-bold text-green-800 mb-2">Bill Generated Successfully!</h2>
-            <p className="text-green-700">Your order has been processed and bill is ready.</p>
-          </div>
-
-          {/* Bill Preview */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-            <div className="text-center border-b pb-4 mb-4">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Coffee className="w-6 h-6 text-amber-600" />
-                <h3 className="text-lg font-bold text-gray-800">{shopSettings.name}</h3>
-              </div>
-              <p className="text-sm text-gray-600">{shopSettings.address}</p>
-              <p className="text-sm text-gray-600">{shopSettings.phone}</p>
+            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-10 h-10 text-white" />
             </div>
-
-            <div className="space-y-2 mb-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Bill ID:</span>
-                <span className="font-mono">{generatedBill.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Table:</span>
-                <span>{tableNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Date:</span>
-                <span>{new Date(generatedBill.createdAt).toLocaleString()}</span>
-              </div>
-              {customerName && (
-                 <div className="flex justify-between">
-                   <span className="text-gray-600">Customer:</span>
-                   <span>{customerName}</span>
-                 </div>
-               )}
-            </div>
-
-            <div className="border-t pt-4 mb-4">
-              <h4 className="font-semibold mb-3">Items Ordered</h4>
-              <div className="space-y-2">
-                {generatedBill.items.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>{shopSettings.currency}{item.total.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>{shopSettings.currency}{generatedBill.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-              <span>Tax ({shopSettings.taxRate}%):</span>
-              <span>{shopSettings.currency}{generatedBill.tax.toFixed(2)}</span>
-            </div>
-              <div className="flex justify-between font-bold text-lg border-t pt-2">
-                <span>Total:</span>
-                <span>{shopSettings.currency}{generatedBill.total.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={handlePrintBill}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"
-            >
-              <Printer className="w-5 h-5" />
-              Print Bill
-            </button>
+            <h2 className="text-2xl font-bold text-green-800 mb-4">Thank You!</h2>
+            <p className="text-green-700 mb-4">Your order has been placed successfully and sent to our kitchen.</p>
             
-            <button
-              onClick={() => router.push('/')}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-colors"
-            >
-              New Order
-            </button>
+            <div className="bg-green-50 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Coffee className="w-5 h-5 text-green-600" />
+                <span className="font-semibold text-green-800">Order Details</span>
+              </div>
+              <div className="text-sm text-green-700 space-y-1">
+                <p><strong>Order ID:</strong> {completedOrder.id}</p>
+                <p><strong>Table:</strong> {tableNumber}</p>
+                {customerName && <p><strong>Customer:</strong> {customerName}</p>}
+                <p><strong>Total Amount:</strong> {shopSettings.currency}{completedOrder.totalAmount.toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-amber-600 mb-4">
+              <Heart className="w-5 h-5" />
+              <span className="text-sm font-medium">We're preparing your order with love!</span>
+            </div>
+            
+            <p className="text-sm text-gray-600">
+              Our team will notify you when your order is ready. Please stay at your table.
+            </p>
+          </div>
+
+          {/* Action Button */}
+          <button
+            onClick={() => router.push('/')}
+            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg"
+          >
+            <Coffee className="w-5 h-5" />
+            Order More Items
+          </button>
+          
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-500">
+              {shopSettings.footerText}
+            </p>
           </div>
         </div>
       </div>
@@ -299,8 +179,9 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-      <div className="max-w-md mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100">
+      <Navbar showCart={false} />
+      <div className="max-w-md mx-auto p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
@@ -354,7 +235,17 @@ export default function CheckoutPage() {
 
         {/* Order Summary */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          {/* Logo in receipt */}
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo.png"
+              alt="Kulhad Chai Restaurant"
+              width={60}
+              height={60}
+              className="opacity-80"
+            />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2 justify-center">
             <Receipt className="w-5 h-5 text-amber-600" />
             Order Summary - Table {tableNumber}
           </h3>
@@ -376,28 +267,45 @@ export default function CheckoutPage() {
             })}
           </div>
 
-          <div className="border-t pt-4">
-            <div className="text-center text-gray-600">
-              <p>Review your order above</p>
+          {cart.length === 0 ? (
+            <div className="border-t pt-4">
+              <div className="text-center text-gray-600">
+                <p>Your cart is empty. Add items from the menu to proceed.</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal:</span>
+                <span>{shopSettings.currency}{subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Tax ({shopSettings.taxRate}%):</span>
+                <span>{shopSettings.currency}{tax.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg border-t pt-2">
+                <span>Total:</span>
+                <span>{shopSettings.currency}{total.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Generate Bill Button */}
+        {/* Complete Order Button */}
         <button
-          onClick={handleGenerateBill}
-          disabled={isGeneratingBill || cart.length === 0}
+          onClick={handleCompleteOrder}
+          disabled={isProcessingOrder || cart.length === 0}
           className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg disabled:cursor-not-allowed"
         >
-          {isGeneratingBill ? (
+          {isProcessingOrder ? (
             <>
               <Clock className="w-5 h-5 animate-spin" />
-              Generating Bill...
+              Processing Order...
             </>
           ) : (
             <>
-              <Receipt className="w-5 h-5" />
-            Confirm Order
+              <CheckCircle className="w-5 h-5" />
+              Place Order
             </>
           )}
         </button>

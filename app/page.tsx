@@ -8,6 +8,7 @@ import { Plus, Minus, ShoppingCart, Clock } from "lucide-react"
 import type { MenuItem, OrderItem } from "@/lib/types"
 import { getMenuItems, saveMenuItems } from "@/lib/store"
 import { completeMenuItems, menuCategories } from "@/lib/menu-data"
+import { Navbar } from "@/components/navbar"
 
 export default function MenuPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
@@ -26,6 +27,12 @@ export default function MenuPage() {
     // Get table number from URL params
     const params = new URLSearchParams(window.location.search)
     setTableNumber(params.get("table") || "1")
+    
+    // Load cart from localStorage
+    const savedCart = localStorage.getItem('current_cart')
+    if (savedCart) {
+      setCart(JSON.parse(savedCart))
+    }
   }, [])
 
   const categories = menuCategories
@@ -35,20 +42,30 @@ export default function MenuPage() {
   const addToCart = (menuItem: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.menuItemId === menuItem.id)
+      let newCart
       if (existing) {
-        return prev.map((item) => (item.menuItemId === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item))
+        newCart = prev.map((item) => (item.menuItemId === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item))
+      } else {
+        newCart = [...prev, { menuItemId: menuItem.id, quantity: 1, price: menuItem.price }]
       }
-      return [...prev, { menuItemId: menuItem.id, quantity: 1, price: menuItem.price }]
+      // Save to localStorage
+      localStorage.setItem('current_cart', JSON.stringify(newCart))
+      return newCart
     })
   }
 
   const removeFromCart = (menuItemId: string) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.menuItemId === menuItemId)
+      let newCart
       if (existing && existing.quantity > 1) {
-        return prev.map((item) => (item.menuItemId === menuItemId ? { ...item, quantity: item.quantity - 1 } : item))
+        newCart = prev.map((item) => (item.menuItemId === menuItemId ? { ...item, quantity: item.quantity - 1 } : item))
+      } else {
+        newCart = prev.filter((item) => item.menuItemId !== menuItemId)
       }
-      return prev.filter((item) => item.menuItemId !== menuItemId)
+      // Save to localStorage
+      localStorage.setItem('current_cart', JSON.stringify(newCart))
+      return newCart
     })
   }
 
@@ -64,38 +81,40 @@ export default function MenuPage() {
     return cart.reduce((total, item) => total + item.quantity, 0)
   }
 
+  const handleCartClick = () => {
+    // Scroll to cart section or show cart modal
+    const cartSection = document.querySelector('.cart-footer')
+    if (cartSection) {
+      cartSection.scrollIntoView({ behavior: 'smooth' })
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-md shadow-lg border-b border-orange-200 sticky top-0 z-50">
+      {/* Navbar */}
+      <Navbar 
+        cartItemCount={getTotalItems()}
+        showCart={true}
+        onCartClick={handleCartClick}
+      />
+      
+      {/* Table and Status Info */}
+      <div className="bg-white/90 backdrop-blur-md shadow-sm border-b border-orange-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 sm:h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-amber-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg sm:text-xl">☕</span>
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                  Kulhad Chai
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Authentic Taste, Modern Experience</p>
-              </div>
-              {tableNumber && (
-                <span className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full text-xs sm:text-sm font-medium shadow-md">
-                  Table {tableNumber}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="flex items-center space-x-1 sm:space-x-2 text-green-600">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-xs sm:text-sm font-medium">Open 24/7</span>
-              </div>
+          <div className="flex justify-between items-center h-12">
+            {tableNumber && (
+              <span className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full text-sm font-medium shadow-md">
+                Table {tableNumber}
+              </span>
+            )}
+            <div className="flex items-center space-x-2 text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-medium">Open 24/7</span>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-md mx-auto p-4 pb-24">
         {/* Category Tabs */}
@@ -228,7 +247,7 @@ export default function MenuPage() {
 
       {/* Cart Footer */}
       {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-200 p-4 shadow-2xl z-40">
+        <div className="cart-footer fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-200 p-4 shadow-2xl z-40">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">

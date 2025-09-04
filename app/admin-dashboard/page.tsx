@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Package, FileText, CreditCard, TrendingUp, AlertTriangle, DollarSign, ShoppingCart, Receipt, Settings } from "lucide-react"
 import { getCustomers, getProducts, getInvoices, getLowStockProducts } from "@/lib/business-store"
 import type { Customer, Product, Invoice } from "@/lib/business-types"
+import { AdminSidebar } from "@/components/admin-sidebar"
 
 export default function AdminDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -35,129 +36,40 @@ export default function AdminDashboard() {
     return invoiceDate.getMonth() === now.getMonth() && invoiceDate.getFullYear() === now.getFullYear()
   })
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground min-h-screen">
-          <div className="p-6">
-            <h1 className="text-xl font-bold">Business Admin</h1>
-            <p className="text-sm text-sidebar-foreground/70">Kulhad Chai Management</p>
-          </div>
-
-          <nav className="px-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard")}
-            >
-              <TrendingUp className="mr-3 h-4 w-4" />
-              Dashboard
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/customers")}
-            >
-              <Users className="mr-3 h-4 w-4" />
-              Customers
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/products")}
-            >
-              <Package className="mr-3 h-4 w-4" />
-              Products
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/invoices")}
-            >
-              <FileText className="mr-3 h-4 w-4" />
-              Invoices
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/custom-bills")}
-            >
-              <Receipt className="mr-3 h-4 w-4" />
-              Custom Bills
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/bill-settings")}
-            >
-              <Settings className="mr-3 h-4 w-4" />
-              Bill Settings
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/payments")}
-            >
-              <CreditCard className="mr-3 h-4 w-4" />
-              Payments
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/analytics-dashboard")}
-            >
-              <TrendingUp className="mr-3 h-4 w-4" />
-              Analytics
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/reports")}
-            >
-              <FileText className="mr-3 h-4 w-4" />
-              Reports
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/users")}
-            >
-              <Users className="mr-3 h-4 w-4" />
-              User Management
-            </Button>
-            >
-              <TrendingUp className="mr-3 h-4 w-4" />
-              Reports
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/users")}
-            >
-              <Users className="mr-3 h-4 w-4" />
-              User Management
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard/bill-templates")}
-            >
-              <FileText className="mr-3 h-4 w-4" />
-              Bill Templates
-            </Button>
-          </nav>
-        </div>
+        <AdminSidebar />
 
         {/* Main Content */}
         <div className="flex-1 p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground">Dashboard Overview</h1>
-            <p className="text-muted-foreground">Welcome to your business management dashboard</p>
+            <h1 className="text-3xl font-bold mb-2">Business Dashboard</h1>
+            <p className="text-muted-foreground">Overview of your business performance and key metrics</p>
           </div>
 
-          {/* Stats Cards */}
+          {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+                <p className="text-xs text-muted-foreground">
+                  From {invoices.filter(inv => inv.paymentStatus === 'paid').length} paid invoices
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
@@ -165,129 +77,215 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{customers.length}</div>
-                <p className="text-xs text-muted-foreground">Active customer base</p>
+                <p className="text-xs text-muted-foreground">
+                  Active customer base
+                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹{totalRevenue.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">From paid invoices</p>
+                <div className="text-2xl font-bold">{products.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  {products.filter(p => p.isActive).length} active products
+                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">₹{pendingAmount.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">Outstanding payments</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{thisMonthInvoices.length}</div>
-                <p className="text-xs text-muted-foreground">Invoices generated</p>
+                <div className="text-2xl font-bold">{formatCurrency(pendingAmount)}</div>
+                <p className="text-xs text-muted-foreground">
+                  From {invoices.filter(inv => inv.paymentStatus !== 'paid').length} unpaid invoices
+                </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Low Stock Alert */}
-          {lowStockProducts.length > 0 && (
-            <Card className="mb-8 border-destructive">
+          {/* Quick Actions */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/customers'}>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
+                <CardTitle className="flex items-center">
+                  <Users className="mr-2 h-5 w-5" />
+                  Customer Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Add, edit, and manage customer information, search billing history
+                </p>
+                <Button className="w-full">
+                  Manage Customers
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/products'}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Package className="mr-2 h-5 w-5" />
+                  Product Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage products, categories, pricing, tax rates, and inventory
+                </p>
+                <Button className="w-full">
+                  Manage Products
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/invoices'}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="mr-2 h-5 w-5" />
+                  Invoice Generation
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create bills with automatic calculations, discounts, and tax
+                </p>
+                <Button className="w-full">
+                  Create Invoice
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/payments'}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CreditCard className="mr-2 h-5 w-5" />
+                  Payment Tracking
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Track payments, partial payments, and balance due amounts
+                </p>
+                <Button className="w-full">
+                  Track Payments
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/analytics-dashboard'}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="mr-2 h-5 w-5" />
+                  Analytics & Reports
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  View detailed analytics, sales reports, and business insights
+                </p>
+                <Button className="w-full">
+                  View Analytics
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/users'}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Users className="mr-2 h-5 w-5" />
+                  User Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage admin and staff accounts with role-based permissions
+                </p>
+                <Button className="w-full">
+                  Manage Users
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Alerts and Notifications */}
+          {lowStockProducts.length > 0 && (
+            <Card className="mb-6 border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center text-orange-800">
+                  <AlertTriangle className="mr-2 h-5 w-5" />
                   Low Stock Alert
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <p className="text-orange-700 mb-4">
+                  {lowStockProducts.length} products are running low on stock:
+                </p>
                 <div className="space-y-2">
-                  {lowStockProducts.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between">
+                  {lowStockProducts.slice(0, 5).map((product) => (
+                    <div key={product.id} className="flex justify-between items-center">
                       <span className="font-medium">{product.name}</span>
-                      <Badge variant="destructive">
-                        {product.stock} left (Min: {product.minStock})
+                      <Badge variant="outline" className="text-orange-700 border-orange-300">
+                        {product.stock} left
                       </Badge>
                     </div>
                   ))}
+                  {lowStockProducts.length > 5 && (
+                    <p className="text-sm text-orange-600">
+                      ...and {lowStockProducts.length - 5} more products
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
 
           {/* Recent Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Customers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {customers.slice(0, 5).map((customer) => (
-                    <div key={customer.id} className="flex items-center justify-between">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {thisMonthInvoices.slice(-5).map((invoice) => (
+                  <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div>
-                        <p className="font-medium">{customer.name}</p>
-                        <p className="text-sm text-muted-foreground">{customer.phone}</p>
+                        <p className="text-sm font-medium">
+                          Invoice {invoice.invoiceNumber} - {invoice.customerName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(invoice.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => (window.location.href = `/admin-dashboard/customers/${customer.id}`)}
+                    </div>
+                    <div className="text-right">
+                      <Badge 
+                        variant={invoice.paymentStatus === 'paid' ? 'default' : 'secondary'}
+                        className="mb-1"
                       >
-                        View
-                      </Button>
+                        {invoice.paymentStatus}
+                      </Badge>
+                      <p className="text-sm font-medium">{formatCurrency(invoice.totalAmount)}</p>
                     </div>
-                  ))}
-                  {customers.length === 0 && <p className="text-muted-foreground text-center py-4">No customers yet</p>}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Invoices</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {invoices.slice(0, 5).map((invoice) => (
-                    <div key={invoice.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{invoice.invoiceNumber}</p>
-                        <p className="text-sm text-muted-foreground">{invoice.customerName}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">₹{invoice.totalAmount}</p>
-                        <Badge
-                          variant={
-                            invoice.paymentStatus === "paid"
-                              ? "default"
-                              : invoice.paymentStatus === "partial"
-                                ? "secondary"
-                                : "destructive"
-                          }
-                        >
-                          {invoice.paymentStatus}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                  {invoices.length === 0 && <p className="text-muted-foreground text-center py-4">No invoices yet</p>}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </div>
+                ))}
+                {thisMonthInvoices.length === 0 && (
+                  <p className="text-center text-gray-500 py-8">
+                    No recent activity this month
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

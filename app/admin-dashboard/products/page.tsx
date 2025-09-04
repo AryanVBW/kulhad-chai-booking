@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { Package, Plus, Search, Edit, AlertTriangle, TrendingDown, ArrowLeft, Filter, BarChart3 } from "lucide-react"
 import { getProducts, saveProduct, updateProduct, getLowStockProducts } from "@/lib/business-store"
 import type { Product } from "@/lib/business-types"
+import { AdminSidebar } from "@/components/admin-sidebar"
 
 const CATEGORIES = ["Beverages", "Snacks", "Desserts", "Main Course", "Appetizers", "Other"]
 
@@ -150,31 +151,7 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground min-h-screen">
-          <div className="p-6">
-            <h1 className="text-xl font-bold">Business Admin</h1>
-            <p className="text-sm text-sidebar-foreground/70">Kulhad Chai Management</p>
-          </div>
-
-          <nav className="px-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard")}
-            >
-              <ArrowLeft className="mr-3 h-4 w-4" />
-              Dashboard
-            </Button>
-            <Button
-              variant="default"
-              className="w-full justify-start bg-sidebar-primary text-sidebar-primary-foreground"
-            >
-              <Package className="mr-3 h-4 w-4" />
-              Products
-            </Button>
-          </nav>
-        </div>
+        <AdminSidebar />
 
         {/* Main Content */}
         <div className="flex-1 p-8">
@@ -510,7 +487,6 @@ export default function ProductsPage() {
                               <Switch
                                 checked={product.isActive}
                                 onCheckedChange={() => handleToggleActive(product)}
-                                size="sm"
                               />
                               <span className="text-sm">{product.isActive ? "Active" : "Inactive"}</span>
                             </div>

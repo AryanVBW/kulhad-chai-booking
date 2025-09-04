@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Save, Upload, Eye, Settings, Store, MapPin, Phone, Mail, Globe } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { AdminSidebar } from "@/components/admin-sidebar"
+import Image from "next/image"
 
 interface ShopSettings {
   name: string
@@ -153,41 +155,36 @@ export default function BillSettingsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Bill Settings</h1>
-              <p className="text-gray-600">Configure your shop details and bill format</p>
+    <div className="min-h-screen bg-background">
+      <div className="flex">
+        <AdminSidebar />
+        
+        {/* Main Content */}
+        <div className="flex-1">
+          {/* Header */}
+          <div className="bg-white border-b px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Bill Settings</h1>
+                <p className="text-gray-600">Configure your shop details and bill format</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPreview(!showPreview)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  {showPreview ? 'Hide Preview' : 'Show Preview'}
+                </Button>
+                <Button onClick={handleSave} disabled={isLoading}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isLoading ? 'Saving...' : 'Save Settings'}
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              {showPreview ? 'Hide Preview' : 'Show Preview'}
-            </Button>
-            <Button onClick={handleSave} disabled={isLoading}>
-              <Save className="h-4 w-4 mr-2" />
-              {isLoading ? 'Saving...' : 'Save Settings'}
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      <div className="p-6">
+          <div className="p-6">
         <div className={`grid ${showPreview ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'} gap-6`}>
           {/* Settings Form */}
           <div className="space-y-6">
@@ -380,8 +377,10 @@ export default function BillSettingsPage() {
               </Card>
             </div>
           )}
+          </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }

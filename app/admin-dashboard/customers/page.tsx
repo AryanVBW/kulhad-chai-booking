@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Users, Plus, Search, Edit, Trash2, FileText, Phone, Mail, MapPin, ArrowLeft } from "lucide-react"
 import { getCustomers, saveCustomer, updateCustomer, deleteCustomer, getInvoices } from "@/lib/business-store"
 import type { Customer, Invoice } from "@/lib/business-types"
+import { AdminSidebar } from "@/components/admin-sidebar"
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -96,31 +97,7 @@ export default function CustomersPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground min-h-screen">
-          <div className="p-6">
-            <h1 className="text-xl font-bold">Business Admin</h1>
-            <p className="text-sm text-sidebar-foreground/70">Kulhad Chai Management</p>
-          </div>
-
-          <nav className="px-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={() => (window.location.href = "/admin-dashboard")}
-            >
-              <ArrowLeft className="mr-3 h-4 w-4" />
-              Dashboard
-            </Button>
-            <Button
-              variant="default"
-              className="w-full justify-start bg-sidebar-primary text-sidebar-primary-foreground"
-            >
-              <Users className="mr-3 h-4 w-4" />
-              Customers
-            </Button>
-          </nav>
-        </div>
+        <AdminSidebar />
 
         {/* Main Content */}
         <div className="flex-1 p-8">

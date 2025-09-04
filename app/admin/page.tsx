@@ -25,6 +25,9 @@ import {
   Trash2,
   Upload,
   Image as ImageIcon,
+  Printer,
+  Bell,
+  Coffee,
 } from "lucide-react"
 import type { Order, Table, MenuItem } from "@/lib/types"
 import { getOrders, saveOrders, getTables, saveTables, getMenuItems, saveMenuItems, generateId } from "@/lib/store"
@@ -36,12 +39,43 @@ export default function AdminDashboard() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null)
   const [isAddingItem, setIsAddingItem] = useState(false)
+  const [lastOrderCount, setLastOrderCount] = useState(0)
+  const [showNotification, setShowNotification] = useState(false)
+  const [newOrdersCount, setNewOrdersCount] = useState(0)
 
   useEffect(() => {
-    setOrders(getOrders())
+    const loadedOrders = getOrders()
+    setOrders(loadedOrders)
     setTables(getTables())
     setMenuItems(getMenuItems())
+    setLastOrderCount(loadedOrders.length)
   }, [])
+
+  // Check for new orders and show notifications
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentOrders = getOrders()
+      if (currentOrders.length > lastOrderCount) {
+        const newOrders = currentOrders.length - lastOrderCount
+        setNewOrdersCount(newOrders)
+        setShowNotification(true)
+        
+        // Play notification sound
+        const audio = new Audio('/notify.wav')
+        audio.play().catch(e => console.log('Could not play notification sound:', e))
+        
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => {
+          setShowNotification(false)
+        }, 5000)
+        
+        setOrders(currentOrders)
+        setLastOrderCount(currentOrders.length)
+      }
+    }, 2000) // Check every 2 seconds
+
+    return () => clearInterval(interval)
+  }, [lastOrderCount])
 
   const menuNavItems = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -72,6 +106,90 @@ export default function AdminDashboard() {
 
   const getTableById = (id: string) => {
     return tables.find((table) => table.id === id)
+  }
+
+  const printBill = (order: Order) => {
+    const table = getTableById(order.tableId)
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const billHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bill - Order #${order.id.slice(-6)}</title>
+          <style>
+            body { font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+            .shop-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+            .shop-details { font-size: 12px; line-height: 1.4; }
+            .bill-info { margin: 15px 0; }
+            .items { margin: 15px 0; }
+            .item { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+            .totals { border-top: 1px solid #000; padding-top: 10px; margin-top: 15px; }
+            .total-line { display: flex; justify-content: space-between; margin: 3px 0; }
+            .final-total { font-weight: bold; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
+            .footer { text-align: center; margin-top: 20px; font-size: 12px; border-top: 1px solid #000; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="shop-name">☕ Kulhad Chai Restaurant</div>
+            <div class="shop-details">
+              📍 123 Main Street, City, State 12345<br>
+              📞 +1 (555) 123-4567
+            </div>
+          </div>
+          
+          <div class="bill-info">
+            <div><strong>Order ID:</strong> #${order.id.slice(-6)}</div>
+            <div><strong>Table:</strong> ${table?.number || 'N/A'}</div>
+            <div><strong>Date:</strong> ${new Date(order.createdAt).toLocaleString()}</div>
+            ${order.customerName ? `<div><strong>Customer:</strong> ${order.customerName}</div>` : ''}
+            ${order.customerPhone ? `<div><strong>Phone:</strong> ${order.customerPhone}</div>` : ''}
+          </div>
+          
+          <div class="items">
+            <div style="border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px;">
+              <strong>ITEMS ORDERED</strong>
+            </div>
+            ${order.items.map(item => {
+              const menuItem = getMenuItemById(item.menuItemId)
+              return `
+                <div class="item">
+                  <span>${menuItem?.name || 'Unknown Item'} x${item.quantity}</span>
+                  <span>₹${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              `
+            }).join('')}
+          </div>
+          
+          <div class="totals">
+            <div class="total-line">
+              <span>Subtotal:</span>
+              <span>₹${(order.totalAmount / 1.18).toFixed(2)}</span>
+            </div>
+            <div class="total-line">
+              <span>Tax (18%):</span>
+              <span>₹${(order.totalAmount - (order.totalAmount / 1.18)).toFixed(2)}</span>
+            </div>
+            <div class="total-line final-total">
+              <span>TOTAL:</span>
+              <span>₹${order.totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <div>Thank you for dining with us!</div>
+            <div>🙏 Please visit again 🙏</div>
+          </div>
+        </body>
+      </html>
+    `
+
+    printWindow.document.write(billHTML)
+    printWindow.document.close()
+    printWindow.print()
   }
 
   const saveMenuItem = (item: MenuItem) => {
@@ -105,11 +223,42 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      {/* New Order Notification Popup */}
+      {showNotification && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white p-4 rounded-lg shadow-lg animate-bounce">
+          <div className="flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            <div>
+              <p className="font-semibold">New Order{newOrdersCount > 1 ? 's' : ''} Received!</p>
+              <p className="text-sm">{newOrdersCount} new order{newOrdersCount > 1 ? 's' : ''} waiting</p>
+            </div>
+            <button 
+              onClick={() => setShowNotification(false)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-slate-800 to-gray-800 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Restaurant Admin</h1>
-          <p className="text-slate-300">Kulhad Chai Management Dashboard</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Restaurant Admin</h1>
+              <p className="text-slate-300">Kulhad Chai Management Dashboard</p>
+            </div>
+            {orders.filter(order => order.status === 'pending').length > 0 && (
+              <div className="flex items-center gap-2 bg-red-500 px-4 py-2 rounded-lg">
+                <Bell className="w-5 h-5" />
+                <span className="font-semibold">
+                  {orders.filter(order => order.status === 'pending').length} Pending Orders
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -344,7 +493,18 @@ export default function AdminDashboard() {
                                     </div>
                                   )}
 
-                                  <div className="flex gap-2">
+                                  <div className="flex flex-wrap gap-2">
+                                    {/* Print Bill Button - Always Available */}
+                                    <Button
+                                      size="sm"
+                                      onClick={() => printBill(order)}
+                                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                                    >
+                                      <Printer className="w-4 h-4 mr-1" />
+                                      Print Bill
+                                    </Button>
+                                    
+                                    {/* Status Update Buttons */}
                                     {order.status === "pending" && (
                                       <Button
                                         size="sm"
