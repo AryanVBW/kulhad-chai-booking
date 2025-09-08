@@ -43,7 +43,7 @@ const initializeDefaultData = () => {
   const defaultUser: User = {
     id: "1",
     name: "Administrator",
-    email: "admin@kulhadchai.com",
+    email: "admin@kulhadchai.shop",
     phone: "+91 9876543210",
     username: "admin",
     password: "admin123",

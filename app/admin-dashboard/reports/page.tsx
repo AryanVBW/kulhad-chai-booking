@@ -19,7 +19,7 @@ import {
   Line,
 } from "recharts"
 import { TrendingUp, DollarSign, ShoppingCart, Users, Download, Calendar, Package } from "lucide-react"
-import { getInvoices, getProducts, getCustomers, getPayments } from "@/lib/business-store"
+import { getInvoices, getProducts, getCustomers, getPayments } from "@/lib/supabase-service"
 import type { Invoice, Product, Customer, Payment } from "@/lib/business-types"
 
 export default function ReportsPage() {
@@ -31,10 +31,23 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState("overview")
 
   useEffect(() => {
-    setInvoices(getInvoices())
-    setProducts(getProducts())
-    setCustomers(getCustomers())
-    setPayments(getPayments())
+    const loadData = async () => {
+      try {
+        const [invoicesData, productsData, customersData, paymentsData] = await Promise.all([
+          getInvoices(),
+          getProducts(),
+          getCustomers(),
+          getPayments()
+        ])
+        setInvoices(invoicesData)
+        setProducts(productsData)
+        setCustomers(customersData)
+        setPayments(paymentsData)
+      } catch (error) {
+        console.error('Error loading data:', error)
+      }
+    }
+    loadData()
   }, [])
 
   // Filter data based on date range
@@ -60,7 +73,7 @@ export default function ReportsPage() {
   const totalProfit = filteredInvoices
     .filter((inv) => inv.paymentStatus === "paid")
     .reduce((sum, inv) => {
-      const profit = inv.items.reduce((itemSum, item) => {
+      const profit = inv.items.reduce((itemSum: number, item: any) => {
         const product = products.find((p) => p.id === item.productId)
         const costPrice = product ? product.cost : 0
         return itemSum + (item.unitPrice - costPrice) * item.quantity
@@ -112,7 +125,7 @@ export default function ReportsPage() {
     )
 
   const topProducts = Object.values(productSales)
-    .sort((a, b) => b.revenue - a.revenue)
+    .sort((a: any, b: any) => b.revenue - a.revenue)
     .slice(0, 5)
 
   // Payment method breakdown
@@ -329,7 +342,7 @@ export default function ReportsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topProducts.map((product, index) => (
+                  {topProducts.map((product: any, index) => (
                     <TableRow key={product.productId}>
                       <TableCell>
                         <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { menuSyncService } from './menu-sync'
 import type { MenuItem, Order, OrderItem, Table } from './types'
 
 // Menu Items Operations
@@ -247,12 +248,16 @@ export const ordersService = {
     return data.map(order => ({
       id: order.id,
       tableId: order.table_id,
-      items: order.order_items.map((item: any) => ({
-        menuItemId: item.menu_item_id,
-        quantity: item.quantity,
-        price: item.price,
-        notes: item.notes || undefined
-      })),
+      items: order.order_items.map((item: any) => {
+        // Keep the database UUID as menuItemId for proper lookup
+        // The frontend will use this UUID to find menu items
+        return {
+          menuItemId: item.menu_item_id,
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes || undefined
+        }
+      }),
       status: order.status as Order['status'],
       totalAmount: order.total_amount,
       createdAt: new Date(order.created_at),
@@ -304,6 +309,8 @@ export const ordersService = {
   },
 
   async create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order | null> {
+    console.log('Creating order with data:', order)
+    
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -321,15 +328,35 @@ export const ordersService = {
       console.error('Error creating order:', orderError)
       throw orderError
     }
+    
+    console.log('Order created successfully:', orderData)
 
-    // Insert order items
-    const orderItems = order.items.map(item => ({
-      order_id: orderData.id,
-      menu_item_id: item.menuItemId,
-      quantity: item.quantity,
-      price: item.price,
-      notes: item.notes
-    }))
+    // Map frontend menu item IDs to database UUIDs
+    const orderItems = []
+    for (const item of order.items) {
+      let menuItemUuid = item.menuItemId
+      
+      // Check if it's already a UUID format
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidPattern.test(item.menuItemId)) {
+        // Use menu sync service to get the database UUID
+        const dbId = menuSyncService.getDbId(item.menuItemId)
+        if (dbId) {
+          menuItemUuid = dbId
+        } else {
+          console.error(`Could not find database ID for menu item: ${item.menuItemId}`)
+          throw new Error(`Menu item not found in database: ${item.menuItemId}`)
+        }
+      }
+      
+      orderItems.push({
+        order_id: orderData.id,
+        menu_item_id: menuItemUuid,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.notes
+      })
+    }
 
     const { error: itemsError } = await supabase
       .from('order_items')

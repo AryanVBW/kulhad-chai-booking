@@ -18,7 +18,10 @@ import {
   ArrowLeft,
   ShoppingCart,
   LogOut,
-  User
+  User,
+  QrCode,
+  Menu,
+  Coffee
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -129,6 +132,24 @@ export function AdminSidebar({ title = "Business Admin", subtitle = "Kulhad Chai
       label: "User Management",
       icon: Shield,
       isActive: pathname === "/admin-dashboard/users"
+    },
+    {
+      href: "/admin-dashboard/orders",
+      label: "Orders Management",
+      icon: ShoppingCart,
+      isActive: pathname === "/admin-dashboard/orders"
+    },
+    {
+      href: "/admin-dashboard/tables",
+      label: "Tables & QR Codes",
+      icon: QrCode,
+      isActive: pathname === "/admin-dashboard/tables"
+    },
+    {
+      href: "/admin-dashboard/menu",
+      label: "Menu Management",
+      icon: Menu,
+      isActive: pathname === "/admin-dashboard/menu"
     },
     {
       href: "/admin-dashboard/custom-bills",

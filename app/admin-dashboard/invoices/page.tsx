@@ -32,11 +32,13 @@ import {
   getProducts,
   updateProduct,
   getBusinessSettings,
-} from "@/lib/business-store"
+  generateInvoiceNumber,
+} from "@/lib/supabase-service"
 import type { Invoice, Customer, Product, InvoiceItem } from "@/lib/business-types"
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([]) 
+  const [businessSettings, setBusinessSettings] = useState<any>(null)
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -73,10 +75,21 @@ export default function InvoicesPage() {
     setFilteredInvoices(filtered)
   }, [invoices, searchTerm, statusFilter])
 
-  const loadData = () => {
-    setInvoices(getInvoices())
-    setCustomers(getCustomers())
-    setProducts(getProducts())
+  const loadData = async () => {
+    try {
+      const [invoicesData, customersData, productsData, businessData] = await Promise.all([
+        getInvoices(),
+        getCustomers(),
+        getProducts(),
+        getBusinessSettings()
+      ])
+      setInvoices(invoicesData)
+      setCustomers(customersData)
+      setProducts(productsData)
+      setBusinessSettings(businessData)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    }
   }
 
   const addInvoiceItem = (product: Product) => {
@@ -140,12 +153,14 @@ export default function InvoicesPage() {
     return { subtotal, discountAmount, taxAmount, total }
   }
 
-  const handleCreateInvoice = () => {
+  const handleCreateInvoice = async () => {
     if (!selectedCustomer || invoiceItems.length === 0) return
 
     const { subtotal, discountAmount, taxAmount, total } = calculateTotals()
+    const invoiceNumber = await generateInvoiceNumber()
 
     const newInvoice = {
+      invoiceNumber,
       customerId: selectedCustomer.id,
       customerName: selectedCustomer.name,
       customerPhone: selectedCustomer.phone,
@@ -166,9 +181,13 @@ export default function InvoicesPage() {
       createdBy: "admin",
     }
 
-    saveInvoice(newInvoice)
-    loadData()
-    resetForm()
+    try {
+      await saveInvoice(newInvoice)
+      await loadData()
+      resetForm()
+    } catch (error) {
+      console.error('Error creating invoice:', error)
+    }
   }
 
   const resetForm = () => {
@@ -181,23 +200,27 @@ export default function InvoicesPage() {
     setIsCreateDialogOpen(false)
   }
 
-  const handleStatusUpdate = (invoiceId: string, status: Invoice["status"]) => {
-    updateInvoice(invoiceId, { status })
+  const handleStatusUpdate = async (invoiceId: string, status: Invoice["status"]) => {
+    try {
+      await updateInvoice(invoiceId, { status })
 
-    // If finalizing invoice, reduce stock
-    if (status === "sent") {
-      const invoice = invoices.find((inv) => inv.id === invoiceId)
-      if (invoice) {
-        invoice.items.forEach((item) => {
-          const product = products.find((p) => p.id === item.productId)
-          if (product) {
-            updateProduct(product.id, { stock: Math.max(0, product.stock - item.quantity) })
+      // If finalizing invoice, reduce stock
+      if (status === "sent") {
+        const invoice = invoices.find((inv) => inv.id === invoiceId)
+        if (invoice) {
+          for (const item of invoice.items) {
+            const product = products.find((p) => p.id === item.productId)
+            if (product) {
+              await updateProduct(product.id, { stock: Math.max(0, product.stock - item.quantity) })
+            }
           }
-        })
+        }
       }
-    }
 
-    loadData()
+      await loadData()
+    } catch (error) {
+      console.error('Error updating invoice status:', error)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -216,7 +239,7 @@ export default function InvoicesPage() {
   }
 
   const totals = calculateTotals()
-  const businessSettings = getBusinessSettings()
+
 
   return (
     <div className="min-h-screen bg-background">

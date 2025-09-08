@@ -86,7 +86,7 @@ export default function AdminLogin() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@kulhadchai.com"
+                    placeholder="admin@kulhadchai.shop"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
@@ -132,7 +132,7 @@ export default function AdminLogin() {
                 Demo Credentials:
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Email: admin@kulhadchai.com | Password: admin123
+                Email: admin@kulhadchai.shop | Password: admin123
               </p>
             </div>
           </CardContent>

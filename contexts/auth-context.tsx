@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { authenticateUser, logoutUser, getCurrentUser } from '@/lib/business-store'
+import { createClient } from '@/utils/supabase/client'
 
 interface User {
   id: string
@@ -35,23 +35,147 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing user session
-    const currentUser = getCurrentUser()
-    if (currentUser) {
-      setUser(currentUser)
+    const checkUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        // Get user role from metadata or default to admin
+        const userRole = user.user_metadata?.role || 'admin'
+        const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+        
+        // Set permissions based on role
+        const getPermissions = (role: string) => {
+          switch (role) {
+            case 'admin':
+              return {
+                customers: { read: true, write: true, delete: true },
+                products: { read: true, write: true, delete: true },
+                invoices: { read: true, write: true, delete: true },
+                payments: { read: true, write: true, delete: true },
+                reports: { read: true, write: true, delete: true },
+                users: { read: true, write: true, delete: true }
+              }
+            case 'manager':
+              return {
+                customers: { read: true, write: true, delete: false },
+                products: { read: true, write: true, delete: false },
+                invoices: { read: true, write: true, delete: false },
+                payments: { read: true, write: false, delete: false },
+                reports: { read: true, write: false, delete: false },
+                users: { read: true, write: false, delete: false }
+              }
+            case 'staff':
+              return {
+                customers: { read: true, write: false, delete: false },
+                products: { read: true, write: false, delete: false },
+                invoices: { read: true, write: false, delete: false },
+                payments: { read: false, write: false, delete: false },
+                reports: { read: false, write: false, delete: false },
+                users: { read: false, write: false, delete: false }
+              }
+            default:
+              return {
+                customers: { read: false, write: false, delete: false },
+                products: { read: false, write: false, delete: false },
+                invoices: { read: false, write: false, delete: false },
+                payments: { read: false, write: false, delete: false },
+                reports: { read: false, write: false, delete: false },
+                users: { read: false, write: false, delete: false }
+              }
+          }
+        }
+        
+        const authUser: User = {
+          id: user.id,
+          name: userName,
+          email: user.email || '',
+          role: userRole as 'admin' | 'manager' | 'staff',
+          permissions: getPermissions(userRole)
+        }
+        setUser(authUser)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    
+    checkUser()
   }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true)
     
     try {
-      const authenticatedUser = authenticateUser(email, password)
-      if (authenticatedUser) {
-        setUser(authenticatedUser)
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (error) {
+        console.error('Login error:', error)
+        setIsLoading(false)
+        return false
+      }
+      
+      if (data.user) {
+        // Get user role from metadata or default to admin
+        const userRole = data.user.user_metadata?.role || 'admin'
+        const userName = data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'User'
+        
+        // Set permissions based on role (reuse the same logic)
+        const getPermissions = (role: string) => {
+          switch (role) {
+            case 'admin':
+              return {
+                customers: { read: true, write: true, delete: true },
+                products: { read: true, write: true, delete: true },
+                invoices: { read: true, write: true, delete: true },
+                payments: { read: true, write: true, delete: true },
+                reports: { read: true, write: true, delete: true },
+                users: { read: true, write: true, delete: true }
+              }
+            case 'manager':
+              return {
+                customers: { read: true, write: true, delete: false },
+                products: { read: true, write: true, delete: false },
+                invoices: { read: true, write: true, delete: false },
+                payments: { read: true, write: false, delete: false },
+                reports: { read: true, write: false, delete: false },
+                users: { read: true, write: false, delete: false }
+              }
+            case 'staff':
+              return {
+                customers: { read: true, write: false, delete: false },
+                products: { read: true, write: false, delete: false },
+                invoices: { read: true, write: false, delete: false },
+                payments: { read: false, write: false, delete: false },
+                reports: { read: false, write: false, delete: false },
+                users: { read: false, write: false, delete: false }
+              }
+            default:
+              return {
+                customers: { read: false, write: false, delete: false },
+                products: { read: false, write: false, delete: false },
+                invoices: { read: false, write: false, delete: false },
+                payments: { read: false, write: false, delete: false },
+                reports: { read: false, write: false, delete: false },
+                users: { read: false, write: false, delete: false }
+              }
+          }
+        }
+        
+        const authUser: User = {
+          id: data.user.id,
+          name: userName,
+          email: data.user.email || '',
+          role: userRole as 'admin' | 'manager' | 'staff',
+          permissions: getPermissions(userRole)
+        }
+        setUser(authUser)
         setIsLoading(false)
         return true
       }
+      
       setIsLoading(false)
       return false
     } catch (error) {
@@ -61,10 +185,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = () => {
-    logoutUser()
+  const logout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
     setUser(null)
-    router.push('/admin/login')
+    
+    // Redirect to appropriate login page based on current path
+    const currentPath = window.location.pathname
+    if (currentPath.startsWith('/shop-portal')) {
+      router.push('/shop-portal/login')
+    } else {
+      router.push('/admin/login')
+    }
   }
 
   return (

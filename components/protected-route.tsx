@@ -7,13 +7,10 @@ import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredPermissions?: {
-    module: string
-    permission: 'read' | 'write' | 'delete'
-  }[]
+  adminOnly?: boolean
 }
 
-export function ProtectedRoute({ children, requiredPermissions = [] }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [isChecking, setIsChecking] = useState(true)
@@ -25,22 +22,18 @@ export function ProtectedRoute({ children, requiredPermissions = [] }: Protected
         return
       }
 
-      // Check if user has required permissions
-      if (requiredPermissions.length > 0) {
-        const hasPermissions = requiredPermissions.every(({ module, permission }) => {
-          const modulePermissions = user.permissions[module as keyof typeof user.permissions]
-          return modulePermissions && modulePermissions[permission]
-        })
-
-        if (!hasPermissions) {
-          router.push('/admin-dashboard') // Redirect to dashboard if no permissions
+      // Check if admin access is required
+      if (adminOnly) {
+        const isAdmin = (user as any).user_metadata?.role === 'admin' || user.email === 'admin@restaurant.com'
+        if (!isAdmin) {
+          router.push('/admin/login') // Redirect to login if not admin
           return
         }
       }
 
       setIsChecking(false)
     }
-  }, [user, isLoading, router, requiredPermissions])
+  }, [user, isLoading, router, adminOnly])
 
   if (isLoading || isChecking) {
     return (

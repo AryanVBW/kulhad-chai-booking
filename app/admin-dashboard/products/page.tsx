@@ -14,14 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
 import { Package, Plus, Search, Edit, AlertTriangle, TrendingDown, ArrowLeft, Filter, BarChart3 } from "lucide-react"
-import { getProducts, saveProduct, updateProduct, getLowStockProducts } from "@/lib/business-store"
+import { getProducts, saveProduct, updateProduct, getLowStockProducts } from "@/lib/supabase-service"
 import type { Product } from "@/lib/business-types"
 import { AdminSidebar } from "@/components/admin-sidebar"
 
 const CATEGORIES = ["Beverages", "Snacks", "Desserts", "Main Course", "Appetizers", "Other"]
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<Product[]>([]) 
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
@@ -66,11 +67,18 @@ export default function ProductsPage() {
     setFilteredProducts(filtered)
   }, [products, searchTerm, selectedCategory, stockFilter])
 
-  const loadProducts = () => {
-    setProducts(getProducts())
+  const loadProducts = async () => {
+    try {
+      const products = await getProducts()
+      setProducts(products)
+      const lowStock = await getLowStockProducts()
+      setLowStockProducts(lowStock)
+    } catch (error) {
+      console.error('Error loading products:', error)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const productData = {
@@ -86,14 +94,17 @@ export default function ProductsPage() {
       isActive: formData.isActive,
     }
 
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData)
-    } else {
-      saveProduct(productData)
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, productData)
+      } else {
+        await saveProduct(productData)
+      }
+      await loadProducts()
+      resetForm()
+    } catch (error) {
+      console.error('Error saving product:', error)
     }
-
-    loadProducts()
-    resetForm()
   }
 
   const resetForm = () => {
@@ -130,21 +141,28 @@ export default function ProductsPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleToggleActive = (product: Product) => {
-    updateProduct(product.id, { isActive: !product.isActive })
-    loadProducts()
-  }
-
-  const adjustStock = (productId: string, adjustment: number) => {
-    const product = products.find((p) => p.id === productId)
-    if (product) {
-      const newStock = Math.max(0, product.stock + adjustment)
-      updateProduct(productId, { stock: newStock })
-      loadProducts()
+  const handleToggleActive = async (product: Product) => {
+    try {
+      await updateProduct(product.id, { isActive: !product.isActive })
+      await loadProducts()
+    } catch (error) {
+      console.error('Error toggling product status:', error)
     }
   }
 
-  const lowStockProducts = getLowStockProducts()
+  const adjustStock = async (productId: string, adjustment: number) => {
+    const product = products.find((p) => p.id === productId)
+    if (product) {
+      const newStock = Math.max(0, product.stock + adjustment)
+      try {
+        await updateProduct(productId, { stock: newStock })
+        await loadProducts()
+      } catch (error) {
+        console.error('Error adjusting stock:', error)
+      }
+    }
+  }
+
   const outOfStockProducts = products.filter((p) => p.stock === 0 && p.isActive)
   const totalValue = products.reduce((sum, p) => sum + p.stock * p.cost, 0)
 

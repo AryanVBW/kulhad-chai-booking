@@ -1,15 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense, lazy, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, Package, FileText, CreditCard, TrendingUp, AlertTriangle, DollarSign, ShoppingCart, Receipt, Settings, Calendar, BarChart3 } from "lucide-react"
-import { getCustomers, getProducts, getInvoices, getLowStockProducts } from "@/lib/business-store"
+import { getCustomers, getProducts, getInvoices, getLowStockProducts } from "@/lib/supabase-service"
 import type { Customer, Product, Invoice } from "@/lib/business-types"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { ChartContainer, ChartConfig, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import { Skeleton } from "@/components/ui/skeleton"
+import type { ChartConfig } from "@/components/ui/chart"
+import { OrderNotification } from "@/components/order-notification"
+
+// Lazy load chart components
+const ChartContainer = lazy(() => import("@/components/ui/chart").then(module => ({ default: module.ChartContainer })))
+const ChartTooltip = lazy(() => import("@/components/ui/chart").then(module => ({ default: module.ChartTooltip })))
+const ChartTooltipContent = lazy(() => import("@/components/ui/chart").then(module => ({ default: module.ChartTooltipContent })))
+const AreaChart = lazy(() => import("recharts").then(module => ({ default: module.AreaChart })))
+const LineChart = lazy(() => import("recharts").then(module => ({ default: module.LineChart })))
+const BarChart = lazy(() => import("recharts").then(module => ({ default: module.BarChart })))
+const Area = lazy(() => import("recharts").then(module => ({ default: module.Area })))
+const Line = lazy(() => import("recharts").then(module => ({ default: module.Line })))
+const Bar = lazy(() => import("recharts").then(module => ({ default: module.Bar })))
+const XAxis = lazy(() => import("recharts").then(module => ({ default: module.XAxis })))
+const YAxis = lazy(() => import("recharts").then(module => ({ default: module.YAxis })))
 
 export default function AdminDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -18,10 +32,25 @@ export default function AdminDashboard() {
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
 
   useEffect(() => {
-    setCustomers(getCustomers())
-    setProducts(getProducts())
-    setInvoices(getInvoices())
-    setLowStockProducts(getLowStockProducts())
+    const fetchData = async () => {
+      try {
+        const [customersData, productsData, invoicesData, lowStockData] = await Promise.all([
+          getCustomers(),
+          getProducts(),
+          getInvoices(),
+          getLowStockProducts()
+        ])
+        
+        setCustomers(customersData)
+        setProducts(productsData)
+        setInvoices(invoicesData)
+        setLowStockProducts(lowStockData)
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+      }
+    }
+    
+    fetchData()
   }, [])
 
   const totalRevenue = invoices
@@ -39,7 +68,7 @@ export default function AdminDashboard() {
   })
 
   // Generate sales data for the last 7 days
-  const generateSalesData = () => {
+  const salesData = useMemo(() => {
     const data = []
     const today = new Date()
     
@@ -63,10 +92,10 @@ export default function AdminDashboard() {
     }
     
     return data
-  }
+  }, [invoices])
 
   // Generate monthly revenue data for the last 6 months
-  const generateMonthlyData = () => {
+  const monthlyData = useMemo(() => {
     const data = []
     const today = new Date()
     
@@ -89,10 +118,10 @@ export default function AdminDashboard() {
     }
     
     return data
-  }
+  }, [invoices])
 
   // Generate top products data
-  const generateTopProductsData = () => {
+  const topProductsData = useMemo(() => {
     const productSales: { [key: string]: { name: string, quantity: number, revenue: number } } = {}
     
     invoices.forEach(invoice => {
@@ -114,11 +143,7 @@ export default function AdminDashboard() {
     return Object.values(productSales)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5)
-  }
-
-  const salesData = generateSalesData()
-  const monthlyData = generateMonthlyData()
-  const topProductsData = generateTopProductsData()
+  }, [invoices])
 
   const chartConfig: ChartConfig = {
     revenue: {
@@ -140,6 +165,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <OrderNotification />
       <div className="flex">
         <AdminSidebar />
 
@@ -321,20 +347,22 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <AreaChart data={salesData}>
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="var(--color-revenue)"
-                      fill="var(--color-revenue)"
-                      fillOpacity={0.3}
-                    />
-                  </AreaChart>
-                </ChartContainer>
+                <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <AreaChart data={salesData}>
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--color-revenue)"
+                        fill="var(--color-revenue)"
+                        fillOpacity={0.3}
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </Suspense>
               </CardContent>
             </Card>
 
@@ -347,20 +375,22 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <LineChart data={monthlyData}>
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="var(--color-revenue)"
-                      strokeWidth={3}
-                      dot={{ fill: "var(--color-revenue)", strokeWidth: 2, r: 4 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
+                <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <LineChart data={monthlyData}>
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--color-revenue)"
+                        strokeWidth={3}
+                        dot={{ fill: "var(--color-revenue)", strokeWidth: 2, r: 4 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </Suspense>
               </CardContent>
             </Card>
           </div>
@@ -376,14 +406,16 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <BarChart data={topProductsData} layout="horizontal">
-                    <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" width={100} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="revenue" fill="var(--color-revenue)" />
-                  </BarChart>
-                </ChartContainer>
+                <Suspense fallback={<Skeleton className="h-[300px] w-full" />}>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <BarChart data={topProductsData} layout="horizontal">
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={100} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="revenue" fill="var(--color-revenue)" />
+                    </BarChart>
+                  </ChartContainer>
+                </Suspense>
               </CardContent>
             </Card>
 

@@ -12,8 +12,10 @@ import { ArrowLeft, Save, Upload, Eye, Settings, Store, MapPin, Phone, Mail, Glo
 import { useRouter } from "next/navigation"
 import { AdminSidebar } from "@/components/admin-sidebar"
 import Image from "next/image"
+import { getBusinessSettings, updateBusinessSettings } from '@/lib/supabase-service'
+import type { BusinessSettings } from '@/lib/business-types'
 
-interface ShopSettings {
+interface LocalSettings {
   name: string
   address: string
   phone: string
@@ -28,7 +30,7 @@ interface ShopSettings {
   serviceCharge: number
 }
 
-const defaultSettings: ShopSettings = {
+const defaultSettings: LocalSettings = {
   name: "Kulhad Chai Restaurant",
   address: "123 Main Street, City, State 12345",
   phone: "+1 (555) 123-4567",
@@ -45,26 +47,60 @@ const defaultSettings: ShopSettings = {
 
 export default function BillSettingsPage() {
   const router = useRouter()
-  const [settings, setSettings] = useState<ShopSettings>(defaultSettings)
+  const [settings, setSettings] = useState<LocalSettings>(defaultSettings)
   const [isLoading, setIsLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
-    // Load settings from localStorage
-    const savedSettings = localStorage.getItem('shop-settings')
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings))
+    const loadSettings = async () => {
+      try {
+        const businessSettings = await getBusinessSettings()
+        if (businessSettings) {
+          // Map BusinessSettings to LocalSettings
+          setSettings({
+            name: businessSettings.businessName,
+            address: businessSettings.address,
+            phone: businessSettings.phone,
+            email: businessSettings.email,
+            website: '',
+            gst: businessSettings.gstNumber || '',
+            logo: businessSettings.logoUrl || '',
+            tagline: '',
+            footerText: defaultSettings.footerText,
+            currency: businessSettings.currency,
+            taxRate: businessSettings.taxRate,
+            serviceCharge: defaultSettings.serviceCharge
+          })
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error)
+      }
     }
+    loadSettings()
   }, [])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsLoading(true)
-    // Save to localStorage
-    localStorage.setItem('shop-settings', JSON.stringify(settings))
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      // Map LocalSettings to BusinessSettings
+      const businessSettings: Partial<BusinessSettings> = {
+        businessName: settings.name,
+        address: settings.address,
+        phone: settings.phone,
+        email: settings.email,
+        gstNumber: settings.gst,
+        taxRate: settings.taxRate,
+        currency: settings.currency,
+        logoUrl: settings.logo
+      }
+      await updateBusinessSettings(businessSettings)
       alert('Settings saved successfully!')
-    }, 1000)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      alert('Error saving settings')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +114,9 @@ export default function BillSettingsPage() {
     }
   }
 
-  const BillPreview = () => (
+  const BillPreview = () => {
+    
+    return (
     <div className="bg-white p-6 border rounded-lg shadow-lg max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-4">
@@ -152,7 +190,8 @@ export default function BillSettingsPage() {
         <p>{settings.footerText}</p>
       </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">

@@ -35,7 +35,7 @@ import type { Order, Table, MenuItem } from "@/lib/types"
 import { ordersService, tablesService, menuItemsService, subscribeToOrders } from "@/lib/database"
 import { generateId } from "@/lib/store"
 
-export default function AdminDashboard() {
+export default function ShopPortal() {
   const [activeSection, setActiveSection] = useState<string>("overview")
   const [orders, setOrders] = useState<Order[]>([])
   const [tables, setTables] = useState<Table[]>([])
@@ -144,6 +144,31 @@ export default function AdminDashboard() {
     return menuItems.find((item) => item.id === id)
   }
 
+  const getMenuItemName = (menuItemId: string): string => {
+    // First try to find by exact ID match
+    const menuItem = menuItems.find((item) => item.id === menuItemId)
+    if (menuItem) {
+      return menuItem.name
+    }
+
+    // Fallback: try to find in completeMenuItems from menu-data
+    try {
+      const { completeMenuItems } = require('@/lib/menu-data')
+      const fallbackItem = completeMenuItems.find((item: any) => 
+        item.id === menuItemId || item.name === menuItemId
+      )
+      if (fallbackItem) {
+        console.warn(`Menu item found in fallback data: ${fallbackItem.name} for ID: ${menuItemId}`)
+        return fallbackItem.name
+      }
+    } catch (error) {
+      console.error('Error accessing menu-data:', error)
+    }
+
+    console.warn(`Menu item not found for ID: ${menuItemId}. Available items: ${menuItems.length}`)
+    return "Unknown Item"
+  }
+
   const getTableById = (id: string) => {
     return tables.find((table) => table.id === id)
   }
@@ -197,7 +222,7 @@ export default function AdminDashboard() {
               const menuItem = getMenuItemById(item.menuItemId)
               return `
                 <div class="item">
-                  <span>${menuItem?.name || 'Unknown Item'} x${item.quantity}</span>
+                  <span>${getMenuItemName(item.menuItemId)} x${item.quantity}</span>
                   <span>₹${(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               `
@@ -505,7 +530,7 @@ export default function AdminDashboard() {
                                               <div className="flex justify-between items-start">
                                                 <div>
                                                   <p className="font-medium text-gray-900 truncate">
-                                                    {menuItem?.name || 'Unknown Item'}
+                                                    {getMenuItemName(item.menuItemId)}
                                                   </p>
                                                   <p className="text-sm text-gray-600">
                                                     Qty: {item.quantity} × ₹{item.price}

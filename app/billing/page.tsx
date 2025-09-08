@@ -48,6 +48,31 @@ export default function BillingPage() {
     return menuItems.find((item) => item.id === id)
   }
 
+  const getMenuItemName = (menuItemId: string): string => {
+    // First try to find by exact ID match
+    const menuItem = menuItems.find((item) => item.id === menuItemId)
+    if (menuItem) {
+      return menuItem.name
+    }
+
+    // Fallback: try to find in completeMenuItems from menu-data
+    try {
+      const { completeMenuItems } = require('@/lib/menu-data')
+      const fallbackItem = completeMenuItems.find((item: any) => 
+        item.id === menuItemId || item.name === menuItemId
+      )
+      if (fallbackItem) {
+        console.warn(`Menu item found in fallback data: ${fallbackItem.name} for ID: ${menuItemId}`)
+        return fallbackItem.name
+      }
+    } catch (error) {
+      console.error('Error accessing menu-data:', error)
+    }
+
+    console.warn(`Menu item not found for ID: ${menuItemId}. Available items: ${menuItems.length}`)
+    return "Unknown Item"
+  }
+
   const getTableById = (id: string) => {
     return tables.find((table) => table.id === id)
   }
@@ -64,7 +89,7 @@ export default function BillingPage() {
     const billItems = order.items.map((item) => {
       const menuItem = getMenuItemById(item.menuItemId)
       return {
-        name: menuItem?.name || "Unknown Item",
+        name: getMenuItemName(item.menuItemId),
         quantity: item.quantity,
         price: item.price,
         total: item.price * item.quantity,

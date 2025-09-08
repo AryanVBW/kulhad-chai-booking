@@ -42,7 +42,7 @@ export function Navbar({ cartItemCount = 0, showCart = true, showAdmin = false, 
             Menu
           </Link>
           {showAdmin && (
-            <Link href="/admin" className="text-sm font-medium transition-colors hover:text-primary">
+            <Link href="/shop-portal" className="text-sm font-medium transition-colors hover:text-primary">
               Admin
             </Link>
           )}
@@ -85,7 +85,7 @@ export function Navbar({ cartItemCount = 0, showCart = true, showAdmin = false, 
                   Menu
                 </Link>
                 {showAdmin && (
-                  <Link href="/admin" className="text-sm font-medium transition-colors hover:text-primary">
+                  <Link href="/shop-portal" className="text-sm font-medium transition-colors hover:text-primary">
                     Admin
                   </Link>
                 )}

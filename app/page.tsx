@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,121 @@ import { completeMenuItems, menuCategories } from "@/lib/menu-data"
 import { Navbar } from "@/components/navbar"
 import { MenuItemSkeleton, CategoryTabSkeleton } from "@/components/loading-skeleton"
 import { useToast } from "@/components/toast"
+
+// Memoized MenuItem component to prevent unnecessary re-renders
+const MenuItem = memo(({ item, quantity, onAdd, onRemove, categoryInfo }: {
+  item: MenuItem
+  quantity: number
+  onAdd: (item: MenuItem) => void
+  onRemove: (itemId: string) => void
+  categoryInfo: any
+}) => {
+  return (
+    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-4 sm:p-6 card-hover group">
+      <div className="flex flex-col h-full">
+        {/* Product Image */}
+        {item.image && (
+          <div className="relative w-full h-32 sm:h-40 mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50">
+            <Image
+              src={item.image}
+              alt={item.name}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-110"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+              priority={false}
+            />
+          </div>
+        )}
+        
+        {/* Category Badge */}
+        <div className="flex items-center justify-between mb-3">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${categoryInfo?.color || 'from-gray-400 to-gray-500'} text-white shadow-sm`}>
+            <span className="mr-1">{categoryInfo?.icon || '🍽️'}</span>
+            {categoryInfo?.name || 'Item'}
+          </span>
+          {item.isCombo && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm animate-pulse">
+              🎉 COMBO
+            </span>
+          )}
+        </div>
+
+        {/* Item Info */}
+        <div className="flex-1">
+          <h3 className="font-bold text-gray-900 text-lg mb-2 group-hover:text-orange-600 transition-colors">{item.name}</h3>
+          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
+          
+          {/* Combo Items */}
+          {item.isCombo && item.comboItems && (
+            <div className="mb-3 p-2 bg-orange-50 rounded-lg">
+              <p className="text-xs font-semibold text-orange-700 mb-1">Includes:</p>
+              <ul className="text-xs text-orange-600 space-y-1">
+                {item.comboItems.slice(0, 3).map((comboItem, index) => (
+                  <li key={index} className="flex items-center">
+                    <span className="w-1 h-1 bg-orange-400 rounded-full mr-2"></span>
+                    {comboItem}
+                  </li>
+                ))}
+                {item.comboItems.length > 3 && (
+                  <li className="text-orange-500 font-medium">+{item.comboItems.length - 3} more items</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Price and Time */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col">
+            <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">₹{item.price}</span>
+            {item.isCombo && (
+              <span className="text-xs text-green-600 font-medium">💰 Great Value!</span>
+            )}
+          </div>
+          <div className="flex items-center text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            <Clock className="h-3 w-3 mr-1" />
+            <span>{item.preparationTime} min</span>
+          </div>
+        </div>
+
+        {/* Add to Cart Controls */}
+        <div className="flex items-center justify-center">
+          {quantity > 0 ? (
+            <div className="flex items-center space-x-3 bg-orange-50 rounded-full px-4 py-2">
+              <button
+                onClick={() => onRemove(item.id)}
+                className="w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="font-bold text-gray-900 text-lg min-w-[24px] text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={() => onAdd(item)}
+                className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onAdd(item)}
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold py-3 px-6 rounded-full hover:shadow-lg button-press focus-ring transition-all duration-200"
+            >
+              Add to Cart
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+MenuItem.displayName = 'MenuItem'
 
 export default function MenuPage() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(completeMenuItems)
@@ -49,13 +164,21 @@ export default function MenuPage() {
     loadData()
   }, [])
 
-  const categories = menuCategories
+  // Memoize expensive calculations
+  const categories = useMemo(() => {
+    return menuCategories.filter(category => {
+      const hasItems = menuItems.some(item => item.category === category.id)
+      return hasItems
+    })
+  }, [menuItems])
 
-  const filteredItems = selectedCategory === "all" 
-    ? menuItems.filter((item) => item.available)
-    : menuItems.filter((item) => item.category === selectedCategory && item.available)
+  const filteredItems = useMemo(() => {
+    return selectedCategory === "all" 
+      ? menuItems.filter((item) => item.available)
+      : menuItems.filter((item) => item.category === selectedCategory && item.available)
+  }, [menuItems, selectedCategory])
 
-  const addToCart = (menuItem: MenuItem) => {
+  const addToCart = useCallback((menuItem: MenuItem) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.menuItemId === menuItem.id)
       let newCart
@@ -80,9 +203,9 @@ export default function MenuPage() {
       localStorage.setItem('current_cart', JSON.stringify(newCart))
       return newCart
     })
-  }
+  }, [addToast])
 
-  const removeFromCart = (menuItemId: string) => {
+  const removeFromCart = useCallback((menuItemId: string) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.menuItemId === menuItemId)
       let newCart
@@ -95,33 +218,33 @@ export default function MenuPage() {
       localStorage.setItem('current_cart', JSON.stringify(newCart))
       return newCart
     })
-  }
+  }, [])
 
-  const getCartItemQuantity = (menuItemId: string) => {
+  const getCartItemQuantity = useCallback((menuItemId: string) => {
     return cart.find((item) => item.menuItemId === menuItemId)?.quantity || 0
-  }
+  }, [cart])
 
-  const getTotalAmount = () => {
+  const getTotalAmount = useMemo(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
+  }, [cart])
 
-  const getTotalItems = () => {
+  const getTotalItems = useMemo(() => {
     return cart.reduce((total, item) => total + item.quantity, 0)
-  }
+  }, [cart])
 
-  const handleCartClick = () => {
+  const handleCartClick = useCallback(() => {
     // Scroll to cart section or show cart modal
     const cartSection = document.querySelector('.cart-footer')
     if (cartSection) {
       cartSection.scrollIntoView({ behavior: 'smooth' })
     }
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       {/* Navbar */}
       <Navbar 
-        cartItemCount={getTotalItems()}
+        cartItemCount={getTotalItems}
         showCart={true}
         onCartClick={handleCartClick}
       />
@@ -187,111 +310,16 @@ export default function MenuPage() {
               <MenuItemSkeleton key={i} />
             ))
           ) : (
-            (selectedCategory === "all" ? menuItems : filteredItems).map((item) => {
-            const quantity = getCartItemQuantity(item.id)
-            const categoryInfo = categories.find(cat => cat.id === item.category)
-
-            return (
-              <div key={item.id} className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-4 sm:p-6 card-hover group">
-                <div className="flex flex-col h-full">
-                  {/* Product Image */}
-                  {item.image && (
-                    <div className="relative w-full h-32 sm:h-40 mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-110"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Category Badge */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${categoryInfo?.color || 'from-gray-400 to-gray-500'} text-white shadow-sm`}>
-                      <span className="mr-1">{categoryInfo?.icon || '🍽️'}</span>
-                      {categoryInfo?.name || 'Item'}
-                    </span>
-                    {item.isCombo && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm animate-pulse">
-                        🎉 COMBO
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Item Info */}
-                  <div className="flex-1">
-                    <h3 className="font-bold text-gray-900 text-lg mb-2 group-hover:text-orange-600 transition-colors">{item.name}</h3>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{item.description}</p>
-                    
-                    {/* Combo Items */}
-                    {item.isCombo && item.comboItems && (
-                      <div className="mb-3 p-2 bg-orange-50 rounded-lg">
-                        <p className="text-xs font-semibold text-orange-700 mb-1">Includes:</p>
-                        <ul className="text-xs text-orange-600 space-y-1">
-                          {item.comboItems.slice(0, 3).map((comboItem, index) => (
-                            <li key={index} className="flex items-center">
-                              <span className="w-1 h-1 bg-orange-400 rounded-full mr-2"></span>
-                              {comboItem}
-                            </li>
-                          ))}
-                          {item.comboItems.length > 3 && (
-                            <li className="text-orange-500 font-medium">+{item.comboItems.length - 3} more items</li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Price and Time */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex flex-col">
-                      <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">₹{item.price}</span>
-                      {item.isCombo && (
-                        <span className="text-xs text-green-600 font-medium">💰 Great Value!</span>
-                      )}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                      <Clock className="h-3 w-3 mr-1" />
-                      <span>{item.preparationTime} min</span>
-                    </div>
-                  </div>
-
-                  {/* Add to Cart Controls */}
-                  <div className="flex items-center justify-center">
-                    {quantity > 0 ? (
-                      <div className="flex items-center space-x-3 bg-orange-50 rounded-full px-4 py-2">
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 rounded-full bg-gradient-to-r from-red-500 to-pink-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="font-bold text-gray-900 text-lg min-w-[24px] text-center">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => addToCart(item)}
-                          className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white flex items-center justify-center hover:shadow-lg button-press focus-ring"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => addToCart(item)}
-                        className="flex items-center space-x-2 btn-primary text-white px-6 py-3 rounded-full font-semibold focus-ring"
-                      >
-                        <Plus className="h-4 w-4" />
-                        <span>Add to Cart</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })
+            (selectedCategory === "all" ? menuItems : filteredItems).map((item) => (
+              <MenuItem
+                key={item.id}
+                item={item}
+                quantity={getCartItemQuantity(item.id)}
+                categoryInfo={categories.find(cat => cat.id === item.category)}
+                onAdd={addToCart}
+                onRemove={removeFromCart}
+              />
+            ))
           )}
         </div>
       </div>
@@ -305,18 +333,18 @@ export default function MenuPage() {
                 <div className="relative">
                   <ShoppingCart className="h-6 w-6 text-orange-600" />
                   <span className="absolute -top-2 -right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                    {getTotalItems()}
+                    {getTotalItems}
                   </span>
                 </div>
                 <div>
                   <span className="font-bold text-gray-900 text-lg">
-                    {getTotalItems()} item{getTotalItems() !== 1 ? 's' : ''}
+                    {getTotalItems} item{getTotalItems !== 1 ? 's' : ''}
                   </span>
                   <p className="text-sm text-gray-600">in your cart</p>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">₹{getTotalAmount()}</div>
+                <div className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">₹{getTotalAmount}</div>
                 <p className="text-xs text-gray-500">Total Amount</p>
               </div>
             </div>

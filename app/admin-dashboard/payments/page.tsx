@@ -30,11 +30,12 @@ import {
   getInvoices,
   getBusinessSettings,
   updateBusinessSettings,
-} from "@/lib/business-store"
-import type { Payment, Invoice } from "@/lib/business-types"
+} from "@/lib/supabase-service"
+import type { Payment, Invoice, BusinessSettings } from "@/lib/business-types"
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState<Payment[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])  
+  const [businessSettings, setBusinessSettings] = useState<BusinessSettings | null>(null)
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -50,7 +51,6 @@ export default function PaymentsPage() {
   const [paymentNotes, setPaymentNotes] = useState("")
 
   // Tax settings state
-  const [businessSettings, setBusinessSettings] = useState(getBusinessSettings())
 
   useEffect(() => {
     loadData()
@@ -72,13 +72,22 @@ export default function PaymentsPage() {
     setFilteredPayments(filtered)
   }, [payments, invoices, searchTerm, methodFilter])
 
-  const loadData = () => {
-    setPayments(getPayments())
-    setInvoices(getInvoices())
-    setBusinessSettings(getBusinessSettings())
+  const loadData = async () => {
+    try {
+      const [paymentsData, invoicesData, businessSettingsData] = await Promise.all([
+        getPayments(),
+        getInvoices(),
+        getBusinessSettings()
+      ])
+      setPayments(paymentsData)
+      setInvoices(invoicesData)
+      setBusinessSettings(businessSettingsData)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    }
   }
 
-  const handleAddPayment = () => {
+  const handleAddPayment = async () => {
     if (!selectedInvoice || !paymentAmount) return
 
     const amount = Number.parseFloat(paymentAmount)
@@ -93,9 +102,13 @@ export default function PaymentsPage() {
       createdBy: "admin",
     }
 
-    savePayment(newPayment)
-    loadData()
-    resetPaymentForm()
+    try {
+      await savePayment(newPayment)
+      await loadData()
+      resetPaymentForm()
+    } catch (error) {
+      console.error('Error saving payment:', error)
+    }
   }
 
   const resetPaymentForm = () => {
@@ -107,9 +120,15 @@ export default function PaymentsPage() {
     setIsAddPaymentOpen(false)
   }
 
-  const handleTaxSettingsUpdate = () => {
-    updateBusinessSettings(businessSettings)
-    setIsTaxSettingsOpen(false)
+  const handleTaxSettingsUpdate = async () => {
+    if (!businessSettings) return
+    
+    try {
+      await updateBusinessSettings(businessSettings)
+      setIsTaxSettingsOpen(false)
+    } catch (error) {
+      console.error('Error updating business settings:', error)
+    }
   }
 
   const getPaymentMethodIcon = (method: string) => {
@@ -302,15 +321,15 @@ export default function PaymentsPage() {
                   <div>
                     <Label>Business Name</Label>
                     <Input
-                      value={businessSettings.businessName}
-                      onChange={(e) => setBusinessSettings({ ...businessSettings, businessName: e.target.value })}
+                      value={businessSettings?.businessName || ''}
+                      onChange={(e) => setBusinessSettings({ ...businessSettings!, businessName: e.target.value })}
                     />
                   </div>
                   <div>
                     <Label>GST Number</Label>
                     <Input
-                      value={businessSettings.gstNumber || ""}
-                      onChange={(e) => setBusinessSettings({ ...businessSettings, gstNumber: e.target.value })}
+                      value={businessSettings?.gstNumber || ""}
+                      onChange={(e) => setBusinessSettings({ ...businessSettings!, gstNumber: e.target.value })}
                       placeholder="27AAAAA0000A1Z5"
                     />
                   </div>
@@ -319,17 +338,17 @@ export default function PaymentsPage() {
                     <Input
                       type="number"
                       step="0.01"
-                      value={businessSettings.taxRate}
+                      value={businessSettings?.taxRate || 0}
                       onChange={(e) =>
-                        setBusinessSettings({ ...businessSettings, taxRate: Number.parseFloat(e.target.value) || 0 })
+                        setBusinessSettings({ ...businessSettings!, taxRate: Number.parseFloat(e.target.value) || 0 })
                       }
                     />
                   </div>
                   <div>
                     <Label>Currency</Label>
                     <Select
-                      value={businessSettings.currency}
-                      onValueChange={(value) => setBusinessSettings({ ...businessSettings, currency: value })}
+                      value={businessSettings?.currency || 'INR'}
+                      onValueChange={(value) => setBusinessSettings({ ...businessSettings!, currency: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />

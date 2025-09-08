@@ -2,11 +2,11 @@
 
 import { ProtectedRoute } from "@/components/protected-route"
 
-interface AdminLayoutProps {
+interface ShopPortalLayoutProps {
   children: React.ReactNode
 }
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function ShopPortalLayout({ children }: ShopPortalLayoutProps) {
   return (
     <ProtectedRoute adminOnly={true}>
       {children}

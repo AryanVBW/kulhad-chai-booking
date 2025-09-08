@@ -12,12 +12,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Users, Plus, Search, Edit, Trash2, FileText, Phone, Mail, MapPin, ArrowLeft } from "lucide-react"
-import { getCustomers, saveCustomer, updateCustomer, deleteCustomer, getInvoices } from "@/lib/business-store"
+import { getCustomers, saveCustomer, updateCustomer, deleteCustomer, getInvoices } from "@/lib/supabase-service"
 import type { Customer, Invoice } from "@/lib/business-types"
 import { AdminSidebar } from "@/components/admin-sidebar"
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -31,6 +32,7 @@ export default function CustomersPage() {
 
   useEffect(() => {
     loadCustomers()
+    loadInvoices()
   }, [])
 
   useEffect(() => {
@@ -43,21 +45,39 @@ export default function CustomersPage() {
     setFilteredCustomers(filtered)
   }, [customers, searchTerm])
 
-  const loadCustomers = () => {
-    setCustomers(getCustomers())
+  const loadCustomers = async () => {
+    try {
+      const customersData = await getCustomers()
+      setCustomers(customersData)
+    } catch (error) {
+      console.error('Error loading customers:', error)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const loadInvoices = async () => {
+    try {
+      const invoicesData = await getInvoices()
+      setInvoices(invoicesData)
+    } catch (error) {
+      console.error('Error loading invoices:', error)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingCustomer) {
-      updateCustomer(editingCustomer.id, formData)
-    } else {
-      saveCustomer(formData)
-    }
+    try {
+      if (editingCustomer) {
+        await updateCustomer(editingCustomer.id, formData)
+      } else {
+        await saveCustomer(formData)
+      }
 
-    loadCustomers()
-    resetForm()
+      await loadCustomers()
+      resetForm()
+    } catch (error) {
+      console.error('Error saving customer:', error)
+    }
   }
 
   const resetForm = () => {
@@ -77,15 +97,19 @@ export default function CustomersPage() {
     setIsAddDialogOpen(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this customer?")) {
-      deleteCustomer(id)
-      loadCustomers()
+      try {
+        await deleteCustomer(id)
+        await loadCustomers()
+      } catch (error) {
+        console.error('Error deleting customer:', error)
+      }
     }
   }
 
   const getCustomerInvoices = (customerId: string): Invoice[] => {
-    return getInvoices().filter((invoice) => invoice.customerId === customerId)
+    return invoices.filter((invoice) => invoice.customerId === customerId)
   }
 
   const getCustomerTotalSpent = (customerId: string): number => {

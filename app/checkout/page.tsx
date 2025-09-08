@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { ArrowLeft, Printer, Receipt, Clock, User, Phone, MapPin, Coffee, CheckCircle, Heart } from "lucide-react"
 import type { MenuItem, OrderItem, Order } from "@/lib/types"
-import { menuItemsService, ordersService } from "@/lib/database"
+import { menuItemsService, ordersService, tablesService } from "@/lib/database"
+import { menuSyncService } from "@/lib/menu-sync"
 import { Navbar } from "@/components/navbar"
 
 export default function CheckoutPage() {
@@ -33,6 +34,9 @@ export default function CheckoutPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Initialize menu sync service
+        await menuSyncService.initializeMapping()
+        
         // Load menu items from Supabase
         const items = await menuItemsService.getAll()
         setMenuItems(items)
@@ -60,29 +64,89 @@ export default function CheckoutPage() {
     }
   }, [])
 
-  const getMenuItemById = (id: string) => {
+  // Memoize expensive calculations
+  const getMenuItemById = useCallback((id: string) => {
     return menuItems.find((item) => item.id === id)
-  }
+  }, [menuItems])
 
-  const getSubtotal = () => {
+  const getMenuItemName = useCallback((menuItemId: string): string => {
+    // First try to find by exact ID match
+    let menuItem = menuItems.find(item => item.id === menuItemId)
+    
+    if (!menuItem) {
+      // If not found, try to find by name matching from menu data
+      // This handles cases where IDs might not match due to sync issues
+      try {
+        // Import menu data to get fallback names
+        const { completeMenuItems } = require('@/lib/menu-data')
+        const fallbackItem = completeMenuItems.find((item: any) => item.id === menuItemId)
+        if (fallbackItem) {
+          return fallbackItem.name
+        }
+      } catch (error) {
+        console.warn('Could not load menu data for fallback lookup')
+      }
+      
+      console.warn(`Menu item not found for ID: ${menuItemId}. Available items: ${menuItems.length}`)
+    }
+    
+    return menuItem?.name || 'Unknown Item'
+  }, [menuItems])
+
+  const subtotal = useMemo(() => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
+  }, [cart])
 
-  const subtotal = getSubtotal()
-  const tax = subtotal * (shopSettings.taxRate / 100)
-  const total = subtotal + tax
+  const tax = useMemo(() => {
+    return subtotal * (shopSettings.taxRate / 100)
+  }, [subtotal, shopSettings.taxRate])
 
-  const handleCompleteOrder = async () => {
+  const total = useMemo(() => {
+    return subtotal + tax
+  }, [subtotal, tax])
+
+  const handleCompleteOrder = useCallback(async () => {
     setIsProcessingOrder(true)
 
     try {
+      // Get the actual table UUID from table number
+      const tables = await tablesService.getAll()
+      const table = tables.find(t => t.number === parseInt(tableNumber))
+      
+      if (!table) {
+        throw new Error(`Table ${tableNumber} not found`)
+      }
+      
+      // Ensure menu mapping is initialized
+      await menuSyncService.initializeMapping()
+      
+      // Map frontend menu item IDs to database UUIDs
+      const mappedItems = cart.map(item => {
+        // Check if it's already a UUID format
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        if (uuidPattern.test(item.menuItemId)) {
+          return item // Already a UUID
+        }
+        
+        // Get database UUID from frontend ID
+        const dbId = menuSyncService.getDbId(item.menuItemId)
+        if (!dbId) {
+          throw new Error(`Menu item not found in database: ${item.menuItemId}`)
+        }
+        
+        return {
+          ...item,
+          menuItemId: dbId
+        }
+      })
+      
       const orderData = {
-        tableId: `table-${tableNumber}`,
+        tableId: table.id,
         status: 'pending' as const,
         totalAmount: total,
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
-        items: cart
+        items: mappedItems
       }
 
       // Create order in Supabase
@@ -100,7 +164,7 @@ export default function CheckoutPage() {
     } finally {
       setIsProcessingOrder(false)
     }
-  }
+  }, [tableNumber, total, customerName, customerPhone, cart])
 
   // Removed print functionality as bills are now handled by admin
 
@@ -252,7 +316,7 @@ export default function CheckoutPage() {
               return (
                 <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-800">{menuItem?.name || 'Unknown Item'}</h4>
+                    <h4 className="font-medium text-gray-800">{getMenuItemName(item.menuItemId)}</h4>
                     <p className="text-sm text-gray-600">{shopSettings.currency}{item.price.toFixed(2)} × {item.quantity}</p>
                   </div>
                   <div className="text-right">

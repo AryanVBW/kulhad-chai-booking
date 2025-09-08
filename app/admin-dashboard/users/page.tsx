@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Switch } from "@/components/ui/switch"
 import { Users, Plus, Edit, Trash2, Shield, Activity } from "lucide-react"
-import { getUsers, addUser, updateUser, deleteUser, getUserActivity } from "@/lib/business-store"
+import { getUsers, addUser, updateUser, deleteUser, getUserActivity } from "@/lib/supabase-service"
 import type { User, UserActivity } from "@/lib/business-types"
 
 export default function UserManagement() {
@@ -37,51 +37,80 @@ export default function UserManagement() {
   })
 
   useEffect(() => {
-    setUsers(getUsers())
-    setUserActivity(getUserActivity())
+    const loadData = async () => {
+      try {
+        const usersData = await getUsers()
+        const activityData = await getUserActivity()
+        setUsers(usersData)
+        setUserActivity(activityData)
+      } catch (error) {
+        console.error('Error loading data:', error)
+      }
+    }
+    loadData()
   }, [])
 
-  const handleAddUser = () => {
-    const user = addUser(newUser)
-    setUsers(getUsers())
-    setIsAddDialogOpen(false)
-    setNewUser({
-      name: "",
-      email: "",
-      phone: "",
-      role: "staff",
-      password: "",
-      permissions: {
-        customers: { read: true, write: false, delete: false },
-        products: { read: true, write: false, delete: false },
-        invoices: { read: true, write: false, delete: false },
-        payments: { read: true, write: false, delete: false },
-        reports: { read: false, write: false, delete: false },
-        users: { read: false, write: false, delete: false },
-      },
-    })
+  const handleAddUser = async () => {
+    try {
+      await addUser(newUser)
+      const usersData = await getUsers()
+      setUsers(usersData)
+      setIsAddDialogOpen(false)
+      setNewUser({
+        name: "",
+        email: "",
+        phone: "",
+        role: "staff",
+        password: "",
+        permissions: {
+          customers: { read: true, write: false, delete: false },
+          products: { read: true, write: false, delete: false },
+          invoices: { read: true, write: false, delete: false },
+          payments: { read: true, write: false, delete: false },
+          reports: { read: false, write: false, delete: false },
+          users: { read: false, write: false, delete: false },
+        },
+      })
+    } catch (error) {
+      console.error('Error adding user:', error)
+    }
   }
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (editingUser) {
-      updateUser(editingUser.id, editingUser)
-      setUsers(getUsers())
-      setEditingUser(null)
+      try {
+        await updateUser(editingUser.id, editingUser)
+        const usersData = await getUsers()
+        setUsers(usersData)
+        setEditingUser(null)
+      } catch (error) {
+        console.error('Error updating user:', error)
+      }
     }
   }
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     if (confirm("Are you sure you want to delete this user?")) {
-      deleteUser(userId)
-      setUsers(getUsers())
+      try {
+        await deleteUser(userId)
+        const usersData = await getUsers()
+        setUsers(usersData)
+      } catch (error) {
+        console.error('Error deleting user:', error)
+      }
     }
   }
 
-  const toggleUserStatus = (userId: string) => {
+  const toggleUserStatus = async (userId: string) => {
     const user = users.find((u) => u.id === userId)
     if (user) {
-      updateUser(userId, { ...user, isActive: !user.isActive })
-      setUsers(getUsers())
+      try {
+        await updateUser(userId, { ...user, isActive: !user.isActive })
+        const usersData = await getUsers()
+        setUsers(usersData)
+      } catch (error) {
+        console.error('Error updating user status:', error)
+      }
     }
   }
 
