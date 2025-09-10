@@ -56,7 +56,7 @@ export default function MenuManagement() {
     preparationTime: '',
     ingredients: '',
     allergens: '',
-    isAvailable: true,
+    available: true,
     isPopular: false
   })
 
@@ -123,7 +123,10 @@ export default function MenuManagement() {
         price: '',
         category: 'beverages',
         preparationTime: '',
-        available: true
+        ingredients: '',
+        allergens: '',
+        available: true,
+        isPopular: false
       })
       setIsAddDialogOpen(false)
     } catch (error) {
@@ -134,11 +137,13 @@ export default function MenuManagement() {
   const updateMenuItem = async (itemId: string, updates: Partial<MenuItem>) => {
     try {
       const updatedItem = await menuItemsService.update(itemId, updates)
-      setMenuItems(prev => 
-        prev.map(item => 
-          item.id === itemId ? updatedItem : item
+      if (updatedItem) {
+        setMenuItems(prev => 
+          prev.map(item => 
+            item.id === itemId ? updatedItem : item
+          )
         )
-      )
+      }
     } catch (error) {
       console.error('Failed to update menu item:', error)
     }
@@ -152,6 +157,13 @@ export default function MenuManagement() {
     const item = menuItems.find(item => item.id === itemId)
     if (item) {
       updateMenuItem(itemId, { available: !item.available })
+    }
+  }
+
+  const togglePopular = (itemId: string) => {
+    const item = menuItems.find(item => item.id === itemId)
+    if (item) {
+      updateMenuItem(itemId, { isPopular: !item.isPopular })
     }
   }
 
@@ -282,8 +294,8 @@ export default function MenuManagement() {
                         <div className="flex items-center space-x-2">
                           <Switch
                             id="available"
-                            checked={newItem.isAvailable}
-                            onCheckedChange={(checked) => setNewItem(prev => ({ ...prev, isAvailable: checked }))}
+                            checked={newItem.available}
+                  onCheckedChange={(checked) => setNewItem(prev => ({ ...prev, available: checked }))}
                           />
                           <Label htmlFor="available">Available</Label>
                         </div>
@@ -331,7 +343,7 @@ export default function MenuManagement() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {menuItems.filter(item => item.isAvailable).length}
+                  {menuItems.filter(item => item.available).length}
                 </div>
                 <p className="text-xs text-muted-foreground">Currently available</p>
               </CardContent>
@@ -422,7 +434,7 @@ export default function MenuManagement() {
             {filteredItems.map((item) => {
               const CategoryIcon = getCategoryIcon(item.category)
               return (
-                <Card key={item.id} className={`${!item.isAvailable ? 'opacity-60' : ''}`}>
+                <Card key={item.id} className={`${!item.available ? 'opacity-60' : ''}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
@@ -436,8 +448,8 @@ export default function MenuManagement() {
                             Popular
                           </Badge>
                         )}
-                        <Badge variant={item.isAvailable ? "default" : "secondary"} className="text-xs">
-                          {item.isAvailable ? (
+                        <Badge variant={item.available ? "default" : "secondary"} className="text-xs">
+                        {item.available ? (
                             <><Eye className="h-3 w-3 mr-1" />Available</>
                           ) : (
                             <><EyeOff className="h-3 w-3 mr-1" />Unavailable</>
@@ -454,7 +466,7 @@ export default function MenuManagement() {
                       <div className="text-sm text-muted-foreground">{item.preparationTime} min</div>
                     </div>
 
-                    {item.ingredients.length > 0 && (
+                    {item.ingredients && item.ingredients.length > 0 && (
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Ingredients:</div>
                         <div className="text-xs text-muted-foreground line-clamp-2">
@@ -463,7 +475,7 @@ export default function MenuManagement() {
                       </div>
                     )}
 
-                    {item.allergens.length > 0 && (
+                    {item.allergens && item.allergens.length > 0 && (
                       <div>
                         <div className="text-xs font-medium text-red-600 mb-1">Allergens:</div>
                         <div className="text-xs text-red-600">
@@ -479,7 +491,7 @@ export default function MenuManagement() {
                         onClick={() => toggleAvailability(item.id)}
                         className="flex-1"
                       >
-                        {item.isAvailable ? (
+                        {item.available ? (
                           <><EyeOff className="h-3 w-3 mr-1" />Hide</>
                         ) : (
                           <><Eye className="h-3 w-3 mr-1" />Show</>

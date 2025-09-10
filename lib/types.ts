@@ -25,9 +25,13 @@ export interface MenuItem {
     | "desserts"
   image?: string
   available: boolean
+  isAvailable?: boolean
   preparationTime: number // in minutes
   isCombo?: boolean
   comboItems?: string[] // Array of item names included in combo
+  ingredients?: string[]
+  allergens?: string[]
+  isPopular?: boolean
 }
 
 export interface Table {
