@@ -129,10 +129,10 @@ export default function AdminLogin() {
             
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                Demo Credentials:
+                Admin Login Credentials:
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Email: admin@kulhadchai.shop | Password: admin123
+                Email: admin@kulhadchai.shop | Password: kulhadchai@2025
               </p>
             </div>
           </CardContent>

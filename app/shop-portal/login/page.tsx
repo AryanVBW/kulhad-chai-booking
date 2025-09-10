@@ -52,7 +52,7 @@ export default function ShopPortalLogin() {
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="shop@kulhadchai.shop"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -91,6 +91,15 @@ export default function ShopPortalLogin() {
               )}
             </Button>
           </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Shop Portal Credentials:
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Email: shop@kulhadchai.shop | Password: kulhadchai@2025
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
     
     // Check if user is admin for admin-dashboard routes
     if (pathname.startsWith('/admin-dashboard')) {
-      const isAdmin = (user as any).user_metadata?.role === 'admin' || user.email === 'admin@restaurant.com'
+      const isAdmin = (user as any).user_metadata?.role === 'admin' || user.email === 'admin@kulhadchai.shop'
       if (!isAdmin) {
         return NextResponse.redirect(new URL('/admin/login', request.url))
       }

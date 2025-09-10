@@ -8,7 +8,7 @@ interface ShopPortalLayoutProps {
 
 export default function ShopPortalLayout({ children }: ShopPortalLayoutProps) {
   return (
-    <ProtectedRoute adminOnly={true}>
+    <ProtectedRoute allowedRoles={['admin', 'manager']}>
       {children}
     </ProtectedRoute>
   )
