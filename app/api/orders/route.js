@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ordersService, inventoryService } from '@/lib/database';
 import { menuSyncService } from '@/lib/menu-sync';
+import { notificationService } from '@/lib/notification-service';
 export async function POST(request) {
   try {
     console.log('=== ORDER API CALLED ===');
@@ -93,6 +94,15 @@ export async function POST(request) {
       console.error('Inventory consumption failed:', invErr);
       inventory = { success: false };
     }
+
+    // Send order created notification (async, don't block response)
+    try {
+      await notificationService.sendOrderNotification(newOrder, 'order_created');
+    } catch (notifErr) {
+      console.error('Error sending order created notification:', notifErr);
+      // Don't fail the order creation if notification fails
+    }
+
     return NextResponse.json({
       success: true,
       order: newOrder,

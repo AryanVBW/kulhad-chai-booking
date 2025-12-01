@@ -124,3 +124,73 @@ self.addEventListener('message', (event) => {
     );
   }
 });
+
+// Push notification event handler
+self.addEventListener('push', (event) => {
+  console.log('Service Worker: Push notification received', event);
+
+  let notificationData = {
+    title: 'Kulhad Chai',
+    body: 'You have a new notification',
+    icon: '/logo.png',
+    badge: '/logo.png',
+    data: {},
+  };
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      notificationData = {
+        title: data.title || notificationData.title,
+        body: data.body || notificationData.body,
+        icon: data.icon || notificationData.icon,
+        badge: data.badge || notificationData.badge,
+        data: data.data || {},
+      };
+    } catch (e) {
+      console.error('Service Worker: Error parsing push data', e);
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      data: notificationData.data,
+      tag: notificationData.data.orderId || 'notification',
+      requireInteraction: false,
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+// Notification click event handler
+self.addEventListener('notificationclick', (event) => {
+  console.log('Service Worker: Notification clicked', event);
+
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  const url = data.url || '/';
+
+  event.waitUntil(
+    clients
+      .matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      .then((clientList) => {
+        // If a window is already open, focus it
+        for (const client of clientList) {
+          if (client.url === url && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Otherwise, open a new window
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      })
+  );
+});
