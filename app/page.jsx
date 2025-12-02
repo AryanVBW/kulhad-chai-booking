@@ -90,15 +90,11 @@ export default function MenuPage() {
   } = useToast();
   useEffect(() => {
     const loadData = async () => {
-      console.log('useEffect loadData started');
       setIsLoading(true);
       try {
         await menuSyncService.initializeMapping();
-        console.log('Menu sync service initialized');
 
-        console.log('Using local menu data:', completeMenuItems.length);
         setMenuItems(completeMenuItems);
-        console.log('menuItems set, length:', completeMenuItems.length);
 
         const params = new URLSearchParams(globalThis.location.search);
         setTableNumber(params.get("table") || "1");
@@ -116,7 +112,6 @@ export default function MenuPage() {
         });
       } finally {
         setIsLoading(false);
-        console.log('useEffect loadData completed');
       }
     };
     loadData();
