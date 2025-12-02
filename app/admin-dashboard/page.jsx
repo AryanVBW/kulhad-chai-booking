@@ -131,6 +131,32 @@ export default function AdminDashboard() {
     });
     return Object.values(productSales).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
   }, [invoices]);
+  // Calculate Inventory Value
+  const inventoryValue = products.reduce((sum, product) => {
+    return sum + (product.price * product.stock);
+  }, 0);
+
+  // Calculate Top Customer
+  const topCustomer = useMemo(() => {
+    const customerSpend = {};
+    thisMonthInvoices.forEach(inv => {
+      if (inv.paymentStatus === 'paid') {
+        if (!customerSpend[inv.customerName]) {
+          customerSpend[inv.customerName] = 0;
+        }
+        customerSpend[inv.customerName] += inv.totalAmount;
+      }
+    });
+
+    let top = { name: 'N/A', amount: 0 };
+    Object.entries(customerSpend).forEach(([name, amount]) => {
+      if (amount > top.amount) {
+        top = { name, amount };
+      }
+    });
+    return top;
+  }, [thisMonthInvoices]);
+
   const chartConfig = {
     revenue: {
       label: "Revenue",
@@ -148,179 +174,104 @@ export default function AdminDashboard() {
     }).format(amount);
   };
   return <div className="min-h-screen bg-background">
-      <OrderNotification />
-      <div className="flex">
-        <AdminSidebar />
+    <OrderNotification />
+    <div className="flex">
+      <AdminSidebar />
 
-        {/* Main Content */}
-        <div className="flex-1 p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Business Dashboard</h1>
-            <p className="text-muted-foreground">Overview of your business performance and key metrics</p>
-          </div>
+      {/* Main Content */}
+      <div className="flex-1 p-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Business Dashboard</h1>
+          <p className="text-muted-foreground">Overview of your business performance and key metrics</p>
+        </div>
 
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-                <p className="text-xs text-muted-foreground">
-                  From {invoices.filter(inv => inv.paymentStatus === 'paid').length} paid invoices
-                </p>
-              </CardContent>
-            </Card>
+        {/* Key Metrics Row 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+              <p className="text-xs text-muted-foreground">
+                From {invoices.filter(inv => inv.paymentStatus === 'paid').length} paid invoices
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{customers.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Active customer base
-                </p>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(pendingAmount)}</div>
+              <p className="text-xs text-muted-foreground">
+                From {invoices.filter(inv => inv.paymentStatus !== 'paid').length} unpaid invoices
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{products.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  {products.filter(p => p.isActive).length} active products
-                </p>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(inventoryValue)}</div>
+              <p className="text-xs text-muted-foreground">
+                Total value of stock on hand
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(pendingAmount)}</div>
-                <p className="text-xs text-muted-foreground">
-                  From {invoices.filter(inv => inv.paymentStatus !== 'paid').length} unpaid invoices
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Key Metrics Row 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{customers.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Active customer base
+              </p>
+            </CardContent>
+          </Card>
 
-          {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/customers'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="mr-2 h-5 w-5" />
-                  Customer Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Add, edit, and manage customer information, search billing history
-                </p>
-                <Button className="w-full">
-                  Manage Customers
-                </Button>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{products.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {products.filter(p => p.isActive).length} active products
+              </p>
+            </CardContent>
+          </Card>
 
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/products'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Package className="mr-2 h-5 w-5" />
-                  Product Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Manage products, categories, pricing, tax rates, and inventory
-                </p>
-                <Button className="w-full">
-                  Manage Products
-                </Button>
-              </CardContent>
-            </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Top Customer (Month)</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold truncate" title={topCustomer.name}>{topCustomer.name}</div>
+              <p className="text-xs text-muted-foreground">
+                Spent {formatCurrency(topCustomer.amount)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/invoices'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="mr-2 h-5 w-5" />
-                  Invoice Generation
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Create bills with automatic calculations, discounts, and tax
-                </p>
-                <Button className="w-full">
-                  Create Invoice
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/payments'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CreditCard className="mr-2 h-5 w-5" />
-                  Payment Tracking
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Track payments, partial payments, and balance due amounts
-                </p>
-                <Button className="w-full">
-                  Track Payments
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/analytics-dashboard'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TrendingUp className="mr-2 h-5 w-5" />
-                  Analytics & Reports
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  View detailed analytics, sales reports, and business insights
-                </p>
-                <Button className="w-full">
-                  View Analytics
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => window.location.href = '/admin-dashboard/users'}>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="mr-2 h-5 w-5" />
-                  User Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Manage admin and staff accounts with role-based permissions
-                </p>
-                <Button className="w-full">
-                  Manage Users
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Main Charts Area (2/3 width) */}
+          <div className="lg:col-span-2 space-y-8">
             {/* Daily Sales Chart */}
             <Card>
               <CardHeader>
@@ -359,21 +310,18 @@ export default function AdminDashboard() {
                       <YAxis />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={3} dot={{
-                      fill: "var(--color-revenue)",
-                      strokeWidth: 2,
-                      r: 4
-                    }} />
+                        fill: "var(--color-revenue)",
+                        strokeWidth: 2,
+                        r: 4
+                      }} />
                     </LineChart>
                   </ChartContainer>
                 </Suspense>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Top Products and Performance Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
             {/* Top Products */}
-            <Card className="lg:col-span-2">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Package className="mr-2 h-5 w-5" />
@@ -393,13 +341,36 @@ export default function AdminDashboard() {
                 </Suspense>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Sidebar Column (1/3 width) */}
+          <div className="space-y-6">
+            {/* Quick Actions - Compact Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="cursor-pointer hover:shadow-md transition-shadow p-4 flex flex-col items-center justify-center text-center h-32" onClick={() => window.location.href = '/admin-dashboard/invoices'}>
+                <FileText className="h-8 w-8 mb-2 text-primary" />
+                <span className="text-sm font-medium">New Invoice</span>
+              </Card>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow p-4 flex flex-col items-center justify-center text-center h-32" onClick={() => window.location.href = '/admin-dashboard/products'}>
+                <Package className="h-8 w-8 mb-2 text-primary" />
+                <span className="text-sm font-medium">Products</span>
+              </Card>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow p-4 flex flex-col items-center justify-center text-center h-32" onClick={() => window.location.href = '/admin-dashboard/customers'}>
+                <Users className="h-8 w-8 mb-2 text-primary" />
+                <span className="text-sm font-medium">Customers</span>
+              </Card>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow p-4 flex flex-col items-center justify-center text-center h-32" onClick={() => window.location.href = '/admin-dashboard/payments'}>
+                <CreditCard className="h-8 w-8 mb-2 text-primary" />
+                <span className="text-sm font-medium">Payments</span>
+              </Card>
+            </div>
 
             {/* Performance Summary */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="mr-2 h-5 w-5" />
-                  This Month Summary
+                <CardTitle className="flex items-center text-base">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  This Month
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -425,73 +396,64 @@ export default function AdminDashboard() {
                     {formatCurrency(thisMonthInvoices.length > 0 ? thisMonthInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0) / thisMonthInvoices.length : 0)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Growth Rate</span>
-                  <span className="font-semibold text-green-600">+12.5%</span>
-                </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Alerts and Notifications */}
-          {lowStockProducts.length > 0 && <Card className="mb-6 border-orange-200 bg-orange-50">
+            {/* Alerts */}
+            {lowStockProducts.length > 0 && <Card className="border-orange-200 bg-orange-50">
               <CardHeader>
-                <CardTitle className="flex items-center text-orange-800">
-                  <AlertTriangle className="mr-2 h-5 w-5" />
-                  Low Stock Alert
+                <CardTitle className="flex items-center text-orange-800 text-base">
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Low Stock ({lowStockProducts.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-orange-700 mb-4">
-                  {lowStockProducts.length} products are running low on stock:
-                </p>
                 <div className="space-y-2">
-                  {lowStockProducts.slice(0, 5).map(product => <div key={product.id} className="flex justify-between items-center">
-                      <span className="font-medium">{product.name}</span>
-                      <Badge variant="outline" className="text-orange-700 border-orange-300">
-                        {product.stock} left
-                      </Badge>
-                    </div>)}
-                  {lowStockProducts.length > 5 && <p className="text-sm text-orange-600">
-                      ...and {lowStockProducts.length - 5} more products
-                    </p>}
+                  {lowStockProducts.slice(0, 3).map(product => <div key={product.id} className="flex justify-between items-center text-sm">
+                    <span className="font-medium truncate max-w-[120px]">{product.name}</span>
+                    <Badge variant="outline" className="text-orange-700 border-orange-300">
+                      {product.stock} left
+                    </Badge>
+                  </div>)}
+                  {lowStockProducts.length > 3 && <p className="text-xs text-orange-600 pt-2">
+                    + {lowStockProducts.length - 3} more
+                  </p>}
                 </div>
               </CardContent>
             </Card>}
 
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {thisMonthInvoices.slice(-5).map(invoice => <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Invoice {invoice.invoiceNumber} - {invoice.customerName}
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {thisMonthInvoices.slice(-5).map(invoice => <div key={invoice.id} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 overflow-hidden">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                      <div className="truncate">
+                        <p className="text-sm font-medium truncate">
+                          {invoice.customerName}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-[10px] text-gray-500">
                           {new Date(invoice.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={invoice.paymentStatus === 'paid' ? 'default' : 'secondary'} className="mb-1">
-                        {invoice.paymentStatus}
-                      </Badge>
+                    <div className="text-right flex-shrink-0">
                       <p className="text-sm font-medium">{formatCurrency(invoice.totalAmount)}</p>
                     </div>
                   </div>)}
-                {thisMonthInvoices.length === 0 && <p className="text-center text-gray-500 py-8">
-                    No recent activity this month
+                  {thisMonthInvoices.length === 0 && <p className="text-center text-gray-500 py-4 text-sm">
+                    No recent activity
                   </p>}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-    </div>;
+    </div>
+  </div>;
 }
