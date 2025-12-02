@@ -20,7 +20,35 @@ const nextConfig = {
   reactStrictMode: true,
   // Optimize power consumption on mobile devices
   poweredByHeader: false,
-  
+
+  // Exclude server-only packages from client bundles
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@sendgrid/mail',
+      'resend',
+      'aws-sdk',
+      'nodemailer',
+      'twilio',
+      'web-push'
+    ],
+  },
+
+  // Webpack configuration to handle Node.js modules
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Provide fallbacks for Node.js modules in client-side code
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        dns: false,
+        http2: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
   // Security headers for production
   async headers() {
     return [

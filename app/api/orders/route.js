@@ -70,12 +70,9 @@ export async function POST(request) {
     };
     console.log('Order data to create:', JSON.stringify(orderData, null, 2));
 
-    // Ensure menu mapping is initialized
+    // Ensure menu mapping is initialized (only once)
     await menuSyncService.initializeMapping();
     console.log('Initialized menu mapping with', menuSyncService.getAllMappings().size, 'items');
-
-    // Initialize menu mapping for the orders service
-    await menuSyncService.initializeMapping();
 
     // Create order in database (orders service handles menu item mapping)
     const newOrder = await ordersService.create(orderData);
@@ -135,6 +132,11 @@ export async function GET() {
     const orders = await ordersService.getAll();
     return NextResponse.json({
       orders
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=300',
+        'CDN-Cache-Control': 'public, max-age=300'
+      }
     });
   } catch (error) {
     console.error('Error fetching orders:', error);
