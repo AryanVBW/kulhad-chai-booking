@@ -8,6 +8,7 @@ import { menuSyncService } from "@/lib/menu-sync";
 import { Navbar } from "@/components/navbar";
 import { MenuItemSkeleton, CategoryTabSkeleton } from "@/components/loading-skeleton";
 import { useToast } from "@/components/toast";
+import { LogoLoop } from "@/components/LogoLoop";
 
 const MenuItem = memo(({
   item,
@@ -89,15 +90,11 @@ export default function MenuPage() {
   } = useToast();
   useEffect(() => {
     const loadData = async () => {
-      console.log('useEffect loadData started');
       setIsLoading(true);
       try {
         await menuSyncService.initializeMapping();
-        console.log('Menu sync service initialized');
 
-        console.log('Using local menu data:', completeMenuItems.length);
         setMenuItems(completeMenuItems);
-        console.log('menuItems set, length:', completeMenuItems.length);
 
         const params = new URLSearchParams(globalThis.location.search);
         setTableNumber(params.get("table") || "1");
@@ -115,7 +112,6 @@ export default function MenuPage() {
         });
       } finally {
         setIsLoading(false);
-        console.log('useEffect loadData completed');
       }
     };
     loadData();
@@ -226,17 +222,31 @@ export default function MenuPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4 pb-24 sm:px-6 lg:px-8">
-        <div className="mb-6 sm:mb-8">
-          {isLoading ? <CategoryTabSkeleton /> : <div className="flex space-x-2 sm:space-x-3 overflow-x-auto pb-3 custom-scrollbar scrollbar-hide snap-x snap-mandatory md:justify-center md:flex-wrap md:overflow-visible" role="tablist" aria-label="Menu categories">
-            <button onClick={() => setSelectedCategory("all")} className={`flex items-center space-x-2 px-5 py-3 min-h-[48px] rounded-2xl whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 snap-start ${selectedCategory === "all" ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-200" : "bg-white/90 backdrop-blur-md text-gray-700 hover:bg-white/95 border border-orange-100/50"}`} role="tab" aria-selected={selectedCategory === "all"} aria-controls="menu-items" type="button">
-              <span className="text-lg" aria-hidden="true">🍽️</span>
-              <span className="font-semibold text-sm sm:text-base">All Items</span>
-            </button>
-            {categories.map(category => <button key={category.id} onClick={() => setSelectedCategory(category.id)} className={`flex items-center space-x-2 px-5 py-3 min-h-[48px] rounded-2xl whitespace-nowrap transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 snap-start ${selectedCategory === category.id ? `bg-gradient-to-r ${category.color} text-white shadow-lg` : "bg-white/90 backdrop-blur-md text-gray-700 hover:bg-white/95 border border-orange-100/50"}`} role="tab" aria-selected={selectedCategory === category.id} aria-controls="menu-items" type="button">
-              <span className="text-lg" aria-hidden="true">{category.icon}</span>
-              <span className="font-semibold text-sm sm:text-base">{category.name}</span>
-            </button>)}
-          </div>}
+        {/* Category Loop Animation */}
+        <div className="mb-8 sm:mb-10 -mx-4 sm:mx-0">
+          <LogoLoop
+            logos={menuCategories.map(cat => ({
+              node: (
+                <button
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-6 py-3 rounded-full bg-gradient-to-r ${cat.color} text-white font-semibold text-sm sm:text-base shadow-lg whitespace-nowrap transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ${selectedCategory === cat.id ? 'ring-4 ring-white ring-opacity-50' : ''}`}
+                  type="button"
+                  aria-label={`Filter by ${cat.name}`}
+                >
+                  {cat.name}
+                </button>
+              ),
+              title: cat.name
+            }))}
+            speed={80}
+            direction="left"
+            gap={16}
+            pauseOnHover={true}
+            fadeOut={true}
+            fadeOutColor="rgb(255, 251, 245)"
+            logoHeight={48}
+            ariaLabel="Menu categories"
+          />
         </div>
 
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6" id="menu-items" role="tabpanel" aria-label="Menu items">
