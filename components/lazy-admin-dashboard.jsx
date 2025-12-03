@@ -30,7 +30,7 @@ function AdminDashboardSkeleton() {
         <div className="w-64 bg-sidebar min-h-screen">
           <div className="p-6">
             <Skeleton className="h-6 w-32 mb-2" />
-            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-24" /> 
           </div>
           <div className="px-4 space-y-2">
             {Array.from({

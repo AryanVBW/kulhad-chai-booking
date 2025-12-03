@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ordersService, tablesService, menuSyncService } from '@/lib/database';
+import { ordersService, inventoryService, tablesService, menuSyncService } from '@/lib/database';
+import { notificationService } from '@/lib/notification-service';
 
 export async function POST(request) {
   try {
@@ -17,46 +18,129 @@ export async function POST(request) {
       );
     }
 
+    const tableId = table.id;
+
+    // Normalize items to handle both field naming conventions
+    const normalizedItems = items.map(item => ({
+      menuItemId: item.menuItemId || item.menu_item_id || item.id,
+      quantity: item.quantity,
+      price: item.price,
+      specialInstructions: item.specialInstructions || item.special_instructions
+    }));
+
+    // Calculate total amount if not provided
+    let calculatedTotal = totalAmount;
+    if (typeof calculatedTotal !== 'number' || calculatedTotal <= 0) {
+      calculatedTotal = normalizedItems.reduce((sum, item) => {
+        return sum + item.price * item.quantity;
+      }, 0);
+    }
+
+    // Validate calculated total amount
+    if (typeof calculatedTotal !== 'number' || calculatedTotal <= 0) {
+      return NextResponse.json({
+        error: 'Invalid total amount - unable to calculate from items'
+      }, {
+        status: 400
+      });
+    }
+
+    // Create order data
+    const orderData = {
+      tableId,
+      items: normalizedItems,
+      status: 'pending',
+      totalAmount: calculatedTotal,
+      customerName,
+      customerPhone,
+      notes: body.notes
+    };
+
     // Ensure menu mapping is initialized
     await menuSyncService.initializeMapping();
 
-    // Map frontend menu item IDs to database UUIDs
-    const mappedItems = await Promise.all(items.map(async item => {
-      // Check if it's already a UUID format
-      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (uuidPattern.test(item.menuItemId)) {
-        return item; // Already a UUID
-      }
-
-      // Get database UUID from frontend ID
-      const dbId = await menuSyncService.getDbId(item.menuItemId);
-      if (!dbId) {
-        throw new Error(`Menu item not found in database: ${item.menuItemId}`);
-      }
-      return {
-        ...item,
-        menuItemId: dbId
-      };
-    }));
-
-    const orderData = {
-      tableId: table.id,
-      status: 'pending',
-      totalAmount,
-      customerName: customerName || undefined,
-      customerPhone: customerPhone || undefined,
-      items: mappedItems
-    };
-
-    // Create order in Supabase
+    // Create order in database
     const newOrder = await ordersService.create(orderData);
+    if (!newOrder) {
+      return NextResponse.json({
+        error: 'Failed to create order'
+      }, {
+        status: 500
+      });
+    }
 
-    return NextResponse.json(newOrder);
+    // Apply inventory consumption
+    let inventory;
+    try {
+      inventory = await inventoryService.applyOrderConsumption(newOrder.id);
+    } catch (invErr) {
+      console.error('Inventory consumption failed:', invErr);
+      inventory = { success: false };
+    }
+
+    // Send order created notification
+    try {
+      await notificationService.sendOrderNotification(newOrder, 'order_created');
+    } catch (notifErr) {
+      console.error('Error sending order created notification:', notifErr);
+    }
+
+    return NextResponse.json({
+      success: true,
+      order: newOrder,
+      inventory
+    }, {
+      status: 201
+    });
   } catch (error) {
-    console.error('Error processing order:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to process order' },
-      { status: 500 }
-    );
+    console.error('Error creating order:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('Menu item not found')) {
+        return NextResponse.json({
+          error: error.message
+        }, {
+          status: 400
+        });
+      }
+    }
+
+    return NextResponse.json({
+      error: 'Internal server error'
+    }, {
+      status: 500
+    });
+  }
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')) : undefined;
+    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')) : undefined;
+    const status = searchParams.get('status') || undefined;
+
+    const orders = await ordersService.getAll({ limit, offset, status });
+
+    return NextResponse.json({
+      orders,
+      pagination: limit ? {
+        limit,
+        offset: offset || 0,
+        hasMore: orders.length === limit
+      } : undefined
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=300, s-maxage=300',
+        'CDN-Cache-Control': 'public, max-age=300'
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return NextResponse.json({
+      error: 'Failed to fetch orders'
+    }, {
+      status: 500
+    });
   }
 }

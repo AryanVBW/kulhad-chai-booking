@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ShoppingCart, Search, Filter, Clock, CheckCircle, XCircle, Printer, ArrowLeft, Bell, Coffee } from "lucide-react";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { OrderNotification } from "@/components/order-notification";
-import { ordersService, tablesService, menuItemsService } from "@/lib/database";
+import { ordersService, tablesService, menuItemsService, subscribeToOrders } from "@/lib/database";
 export default function OrdersManagement() {
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -37,6 +37,21 @@ export default function OrdersManagement() {
       }
     };
     loadData();
+  }, []);
+
+  // Real-time subscription for orders (Supabase realtime)
+  useEffect(() => {
+    // Subscribe to any changes on the orders table and refresh local state
+    const unsubscribe = subscribeToOrders((latestOrders) => {
+      setOrders(latestOrders);
+    });
+
+    return () => {
+      // Clean up Supabase channel on unmount
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Filter orders based on search and status

@@ -9,7 +9,12 @@ export async function GET(request) {
     const lowStockOnly = (searchParams.get('lowStockOnly') || 'false').toLowerCase() === 'true';
 
     const items = await inventoryService.getAll({ search, category, lowStockOnly });
-    return NextResponse.json({ items });
+    return NextResponse.json({ items }, {
+      headers: {
+        'Cache-Control': 'public, max-age=600, s-maxage=600',
+        'CDN-Cache-Control': 'public, max-age=600'
+      }
+    });
   } catch (error) {
     console.error('Error fetching inventory:', error);
     return NextResponse.json({ error: 'Failed to fetch inventory items' }, { status: 500 });
