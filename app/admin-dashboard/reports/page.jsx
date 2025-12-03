@@ -62,15 +62,17 @@ export default function ReportsPage() {
     // Group by date for charts
     const dailyData = {};
     filteredInvoices.forEach(inv => {
-      const dateStr = format(new Date(inv.createdAt), 'MMM dd');
-      if (!dailyData[dateStr]) {
-        dailyData[dateStr] = { date: dateStr, revenue: 0, orders: 0 };
+      const invDate = new Date(inv.createdAt);
+      const dateKey = format(invDate, 'yyyy-MM-dd'); // Use ISO format as key for reliable grouping
+      const dateStr = format(invDate, 'MMM dd');
+      if (!dailyData[dateKey]) {
+        dailyData[dateKey] = { date: dateStr, timestamp: invDate.getTime(), revenue: 0, orders: 0 };
       }
-      dailyData[dateStr].revenue += (inv.totalAmount || 0);
-      dailyData[dateStr].orders += 1;
+      dailyData[dateKey].revenue += (inv.totalAmount || 0);
+      dailyData[dateKey].orders += 1;
     });
 
-    const chartData = Object.values(dailyData).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const chartData = Object.values(dailyData).sort((a, b) => a.timestamp - b.timestamp);
 
     return { totalRevenue, totalOrders, averageOrderValue, chartData };
   }, [filteredInvoices]);
