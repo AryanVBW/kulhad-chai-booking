@@ -23,16 +23,25 @@ export function NotificationCenter() {
 
     // Initial fetch of recent pending orders
     const fetchRecentOrders = async () => {
-      const { data } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (data) {
-        setNotifications(data);
-        setUnreadCount(data.length);
+        if (error) {
+          console.error('Error fetching recent orders:', error);
+          return;
+        }
+
+        if (data) {
+          setNotifications(data);
+          setUnreadCount(data.length);
+        }
+      } catch (error) {
+        console.error('Error fetching recent orders:', error);
       }
     };
 
@@ -45,10 +54,14 @@ export function NotificationCenter() {
         schema: 'public',
         table: 'orders'
       }, payload => {
-        const newOrder = payload.new;
-        if (newOrder.status === 'pending') {
-          setNotifications(prev => [newOrder, ...prev]);
-          setUnreadCount(prev => prev + 1);
+        try {
+          const newOrder = payload.new;
+          if (newOrder.status === 'pending') {
+            setNotifications(prev => [newOrder, ...prev]);
+            setUnreadCount(prev => prev + 1);
+          }
+        } catch (error) {
+          console.error('Error processing new order notification:', error);
         }
       })
       .on('postgres_changes', {
@@ -56,14 +69,22 @@ export function NotificationCenter() {
         schema: 'public',
         table: 'orders'
       }, payload => {
-        // If order status changes from pending, remove from notifications or mark as read
-        const updatedOrder = payload.new;
-        if (updatedOrder.status !== 'pending') {
-          setNotifications(prev => prev.filter(n => n.id !== updatedOrder.id));
-          setUnreadCount(prev => Math.max(0, prev - 1));
+        try {
+          // If order status changes from pending, remove from notifications or mark as read
+          const updatedOrder = payload.new;
+          if (updatedOrder.status !== 'pending') {
+            setNotifications(prev => prev.filter(n => n.id !== updatedOrder.id));
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
+        } catch (error) {
+          console.error('Error processing order update notification:', error);
         }
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('Notification center subscription error:', err);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

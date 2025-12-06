@@ -26,6 +26,12 @@ export const useCachedData = (cacheType, fetchFunction, options = {}) => {
   const fetchInProgress = useRef(false);
 
   const loadData = useCallback(async (skipCache = false) => {
+    // SSR guard - prevent browser API access during server-side rendering
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
     if (!enabled || fetchInProgress.current) return;
 
     fetchInProgress.current = true;
@@ -49,14 +55,14 @@ export const useCachedData = (cacheType, fetchFunction, options = {}) => {
 
       // Fetch from database
       const freshData = await fetchFunction();
-      
+
       if (isMounted.current) {
         setData(freshData);
         setLoading(false);
-        
+
         // Cache the data
         await cacheManager.set(cacheType, freshData, key);
-        
+
         onSuccess?.(freshData);
       }
     } catch (err) {
