@@ -828,3 +828,15 @@ graph TD
     E --> E3[Performance Metrics]
 ```
 
+
+---
+
+## 🚨 Recent Deployment Fixes (Important for Developers)
+
+### Critical Issues Resolved:
+1. ✅ **Radix UI Version Pinning** - Fixed "latest" references
+2. ✅ **Security Vulnerabilities** - Updated jws package
+3. ✅ **npm Install Issues** - Added --legacy-peer-deps flag
+4. ⚠️ **SSR Client/Server Imports** - Review and verify
+
+**See [DEPLOYMENT_FIXES.md
